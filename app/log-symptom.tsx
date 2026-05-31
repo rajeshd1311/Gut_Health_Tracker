@@ -1,19 +1,27 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { COLORS, SYMPTOMS } from '@/lib/constants';
 import { useAuth } from '@/lib/auth';
-import { createSymptomLog } from '@/services/database';
-import { Symptom } from '@/types/database';
+import { createSymptomLog, updateSymptomLog } from '@/services/database';
+import { Symptom, SymptomLog } from '@/types/database';
 import DateTimePicker from '@/components/DateTimePicker';
 
 export default function LogSymptomScreen() {
   const { user } = useAuth();
-  const [selectedSymptoms, setSelectedSymptoms] = useState<Symptom[]>([]);
-  const [timestamp, setTimestamp] = useState(() => new Date());
-  const [severity, setSeverity] = useState(5);
-  const [notes, setNotes] = useState('');
+  const { id, entry: entryParam } = useLocalSearchParams<{ id?: string; entry?: string }>();
+  const isEdit = !!id;
+  const editEntry: SymptomLog | null = entryParam ? JSON.parse(entryParam) : null;
+
+  const [selectedSymptoms, setSelectedSymptoms] = useState<Symptom[]>(
+    (editEntry?.symptoms as Symptom[]) ?? []
+  );
+  const [timestamp, setTimestamp] = useState(() =>
+    editEntry ? new Date(editEntry.timestamp) : new Date()
+  );
+  const [severity, setSeverity] = useState(editEntry?.severity ?? 5);
+  const [notes, setNotes] = useState(editEntry?.notes ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,9 +39,23 @@ export default function LogSymptomScreen() {
     }
     setError(null);
     setSaving(true);
-    const result = await createSymptomLog(user.id, selectedSymptoms, severity, notes.trim(), timestamp);
+
+    let success = false;
+    if (isEdit && id) {
+      const result = await updateSymptomLog(id, {
+        symptoms: selectedSymptoms,
+        severity,
+        notes: notes.trim(),
+        timestamp: timestamp.toISOString(),
+      });
+      success = !!result;
+    } else {
+      const result = await createSymptomLog(user.id, selectedSymptoms, severity, notes.trim(), timestamp);
+      success = !!result;
+    }
+
     setSaving(false);
-    if (result) {
+    if (success) {
       router.back();
     } else {
       setError('Failed to save. Please try again.');
@@ -46,7 +68,7 @@ export default function LogSymptomScreen() {
         <ArrowLeft color={COLORS.text} size={24} />
       </TouchableOpacity>
 
-      <Text style={styles.title}>Log Symptoms</Text>
+      <Text style={styles.title}>{isEdit ? 'Edit Symptoms' : 'Log Symptoms'}</Text>
       <Text style={styles.subtitle}>How are you feeling?</Text>
 
       <DateTimePicker
@@ -115,7 +137,9 @@ export default function LogSymptomScreen() {
         onPress={handleSave}
         disabled={saving}
       >
-        <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Save Symptoms'}</Text>
+        <Text style={styles.saveButtonText}>
+          {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Save Symptoms'}
+        </Text>
       </TouchableOpacity>
     </ScrollView>
   );

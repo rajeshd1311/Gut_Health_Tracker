@@ -1,16 +1,24 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { COLORS, NOTE_CATEGORIES } from '@/lib/constants';
 import { useAuth } from '@/lib/auth';
-import { createNoteLog } from '@/services/database';
-import { NoteCategory } from '@/types/database';
+import { createNoteLog, updateNoteLog } from '@/services/database';
+import { NoteCategory, NoteLog } from '@/types/database';
+import DateTimePicker from '@/components/DateTimePicker';
 
 export default function LogNoteScreen() {
   const { user } = useAuth();
-  const [category, setCategory] = useState<NoteCategory>('other');
-  const [content, setContent] = useState('');
+  const { id, entry: entryParam } = useLocalSearchParams<{ id?: string; entry?: string }>();
+  const isEdit = !!id;
+  const editEntry: NoteLog | null = entryParam ? JSON.parse(entryParam) : null;
+
+  const [category, setCategory] = useState<NoteCategory>((editEntry?.category as NoteCategory) ?? 'other');
+  const [timestamp, setTimestamp] = useState(() =>
+    editEntry ? new Date(editEntry.timestamp) : new Date()
+  );
+  const [content, setContent] = useState(editEntry?.content ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,9 +30,22 @@ export default function LogNoteScreen() {
     }
     setError(null);
     setSaving(true);
-    const result = await createNoteLog(user.id, content.trim(), category);
+
+    let success = false;
+    if (isEdit && id) {
+      const result = await updateNoteLog(id, {
+        content: content.trim(),
+        category,
+        timestamp: timestamp.toISOString(),
+      });
+      success = !!result;
+    } else {
+      const result = await createNoteLog(user.id, content.trim(), category, timestamp);
+      success = !!result;
+    }
+
     setSaving(false);
-    if (result) {
+    if (success) {
       router.back();
     } else {
       setError('Failed to save. Please try again.');
@@ -37,8 +58,14 @@ export default function LogNoteScreen() {
         <ArrowLeft color={COLORS.text} size={24} />
       </TouchableOpacity>
 
-      <Text style={styles.title}>Add a Note</Text>
+      <Text style={styles.title}>{isEdit ? 'Edit Note' : 'Add a Note'}</Text>
       <Text style={styles.subtitle}>Context that may affect how you feel</Text>
+
+      <DateTimePicker
+        label="When did this happen?"
+        value={timestamp}
+        onChange={setTimestamp}
+      />
 
       <Text style={styles.label}>Category</Text>
       <View style={styles.chipContainer}>
@@ -72,7 +99,9 @@ export default function LogNoteScreen() {
         onPress={handleSave}
         disabled={saving}
       >
-        <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Save Note'}</Text>
+        <Text style={styles.saveButtonText}>
+          {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Save Note'}
+        </Text>
       </TouchableOpacity>
     </ScrollView>
   );

@@ -129,7 +129,8 @@ export async function deleteSymptomLog(id: string): Promise<boolean> {
 export async function createNoteLog(
   userId: string,
   content: string,
-  category: NoteCategory
+  category: NoteCategory,
+  timestamp?: Date
 ): Promise<NoteLog | null> {
   const { data } = await supabase
     .from('note_logs')
@@ -137,6 +138,7 @@ export async function createNoteLog(
       user_id: userId,
       content,
       category,
+      timestamp: (timestamp || new Date()).toISOString(),
     })
     .select()
     .maybeSingle();
@@ -146,6 +148,19 @@ export async function createNoteLog(
 export async function deleteNoteLog(id: string): Promise<boolean> {
   const { error } = await supabase.from('note_logs').delete().eq('id', id);
   return !error;
+}
+
+export async function updateNoteLog(
+  id: string,
+  updates: { content?: string; category?: NoteCategory; timestamp?: string }
+): Promise<NoteLog | null> {
+  const { data } = await supabase
+    .from('note_logs')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .maybeSingle();
+  return data;
 }
 
 export async function getTodayLogs(userId: string) {

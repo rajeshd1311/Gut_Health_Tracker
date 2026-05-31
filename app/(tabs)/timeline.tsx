@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl, Alert } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { UtensilsCrossed, Activity, StickyNote, Trash2 } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { useFocusEffect, router } from 'expo-router';
+import { UtensilsCrossed, Activity, StickyNote, Trash2, Pencil } from 'lucide-react-native';
 import { COLORS } from '@/lib/constants';
 import { useAuth } from '@/lib/auth';
 import { getTodayLogs, deleteMealLog, deleteSymptomLog, deleteNoteLog } from '@/services/database';
@@ -49,6 +49,13 @@ export default function TimelineScreen() {
     }
   };
 
+  const handleEdit = (entry: TimelineEntry) => {
+    const params = { id: entry.data.id, entry: JSON.stringify(entry.data) };
+    if (entry.type === 'meal') router.push({ pathname: '/log-meal', params });
+    else if (entry.type === 'symptom') router.push({ pathname: '/log-symptom', params });
+    else router.push({ pathname: '/log-note', params });
+  };
+
   const formatTime = (timestamp: string) =>
     new Date(timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
@@ -65,9 +72,14 @@ export default function TimelineScreen() {
               <Text style={styles.cardType}>{meal.meal_type.charAt(0).toUpperCase() + meal.meal_type.slice(1)}</Text>
               <Text style={styles.cardTime}>{formatTime(meal.timestamp)}</Text>
             </View>
-            <TouchableOpacity onPress={() => handleDelete(entry)} style={styles.deleteButton}>
-              <Trash2 color={COLORS.textTertiary} size={16} />
-            </TouchableOpacity>
+            <View style={styles.cardActions}>
+              <TouchableOpacity onPress={() => handleEdit(entry)} style={styles.actionButton}>
+                <Pencil color={COLORS.textTertiary} size={15} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleDelete(entry)} style={styles.actionButton}>
+                <Trash2 color={COLORS.textTertiary} size={15} />
+              </TouchableOpacity>
+            </View>
           </View>
           <Text style={styles.cardDescription}>{meal.description}</Text>
           {meal.trigger_categories.length > 0 && (
@@ -96,9 +108,14 @@ export default function TimelineScreen() {
               <Text style={styles.cardType}>Symptoms</Text>
               <Text style={styles.cardTime}>{formatTime(symptom.timestamp)}</Text>
             </View>
-            <TouchableOpacity onPress={() => handleDelete(entry)} style={styles.deleteButton}>
-              <Trash2 color={COLORS.textTertiary} size={16} />
-            </TouchableOpacity>
+            <View style={styles.cardActions}>
+              <TouchableOpacity onPress={() => handleEdit(entry)} style={styles.actionButton}>
+                <Pencil color={COLORS.textTertiary} size={15} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleDelete(entry)} style={styles.actionButton}>
+                <Trash2 color={COLORS.textTertiary} size={15} />
+              </TouchableOpacity>
+            </View>
           </View>
           <View style={styles.tagRow}>
             {symptom.symptoms.map(s => (
@@ -124,9 +141,14 @@ export default function TimelineScreen() {
             <Text style={styles.cardType}>{note.category.charAt(0).toUpperCase() + note.category.slice(1)}</Text>
             <Text style={styles.cardTime}>{formatTime(note.timestamp)}</Text>
           </View>
-          <TouchableOpacity onPress={() => handleDelete(entry)} style={styles.deleteButton}>
-            <Trash2 color={COLORS.textTertiary} size={16} />
-          </TouchableOpacity>
+          <View style={styles.cardActions}>
+              <TouchableOpacity onPress={() => handleEdit(entry)} style={styles.actionButton}>
+                <Pencil color={COLORS.textTertiary} size={15} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleDelete(entry)} style={styles.actionButton}>
+                <Trash2 color={COLORS.textTertiary} size={15} />
+              </TouchableOpacity>
+            </View>
         </View>
         <Text style={styles.cardDescription}>{note.content}</Text>
       </View>
@@ -215,7 +237,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textTertiary,
   },
-  deleteButton: {
+  cardActions: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  actionButton: {
     padding: 8,
   },
   cardDescription: {

@@ -1,24 +1,32 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Camera, Mic } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS, MEAL_TYPES, TRIGGER_CATEGORIES } from '@/lib/constants';
 import { useAuth } from '@/lib/auth';
-import { createMealLog } from '@/services/database';
-import { MealType, TriggerCategory } from '@/types/database';
+import { createMealLog, updateMealLog } from '@/services/database';
+import { MealType, TriggerCategory, MealLog } from '@/types/database';
 import DateTimePicker from '@/components/DateTimePicker';
 
 export default function LogMealScreen() {
   const { user } = useAuth();
-  const [mealType, setMealType] = useState<MealType>('snack');
-  const [timestamp, setTimestamp] = useState(() => new Date());
-  const [description, setDescription] = useState('');
-  const [portionNote, setPortionNote] = useState('');
-  const [triggers, setTriggers] = useState<TriggerCategory[]>([]);
-  const [notes, setNotes] = useState('');
-  const [voiceTranscript, setVoiceTranscript] = useState('');
-  const [photoUri, setPhotoUri] = useState('');
+  const { id, entry: entryParam } = useLocalSearchParams<{ id?: string; entry?: string }>();
+  const isEdit = !!id;
+  const editEntry: MealLog | null = entryParam ? JSON.parse(entryParam) : null;
+
+  const [mealType, setMealType] = useState<MealType>((editEntry?.meal_type as MealType) ?? 'snack');
+  const [timestamp, setTimestamp] = useState(() =>
+    editEntry ? new Date(editEntry.timestamp) : new Date()
+  );
+  const [description, setDescription] = useState(editEntry?.description ?? '');
+  const [portionNote, setPortionNote] = useState(editEntry?.portion_note ?? '');
+  const [triggers, setTriggers] = useState<TriggerCategory[]>(
+    (editEntry?.trigger_categories as TriggerCategory[]) ?? []
+  );
+  const [notes, setNotes] = useState(editEntry?.notes ?? '');
+  const [voiceTranscript, setVoiceTranscript] = useState(editEntry?.voice_transcript ?? '');
+  const [photoUri, setPhotoUri] = useState(editEntry?.photo_uri ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,19 +55,37 @@ export default function LogMealScreen() {
     }
     setError(null);
     setSaving(true);
-    const result = await createMealLog(
-      user.id,
-      mealType,
-      description.trim(),
-      triggers,
-      portionNote.trim(),
-      photoUri,
-      voiceTranscript.trim(),
-      notes.trim(),
-      timestamp
-    );
+
+    let success = false;
+    if (isEdit && id) {
+      const result = await updateMealLog(id, {
+        meal_type: mealType,
+        description: description.trim(),
+        trigger_categories: triggers,
+        portion_note: portionNote.trim(),
+        photo_uri: photoUri,
+        voice_transcript: voiceTranscript.trim(),
+        notes: notes.trim(),
+        timestamp: timestamp.toISOString(),
+      });
+      success = !!result;
+    } else {
+      const result = await createMealLog(
+        user.id,
+        mealType,
+        description.trim(),
+        triggers,
+        portionNote.trim(),
+        photoUri,
+        voiceTranscript.trim(),
+        notes.trim(),
+        timestamp
+      );
+      success = !!result;
+    }
+
     setSaving(false);
-    if (result) {
+    if (success) {
       router.back();
     } else {
       setError('Failed to save. Please try again.');
@@ -72,7 +98,7 @@ export default function LogMealScreen() {
         <ArrowLeft color={COLORS.text} size={24} />
       </TouchableOpacity>
 
-      <Text style={styles.title}>Log a Meal</Text>
+      <Text style={styles.title}>{isEdit ? 'Edit Meal' : 'Log a Meal'}</Text>
       <Text style={styles.subtitle}>What did you eat or drink?</Text>
 
       <DateTimePicker
@@ -172,7 +198,9 @@ export default function LogMealScreen() {
         onPress={handleSave}
         disabled={saving}
       >
-        <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Save Meal'}</Text>
+        <Text style={styles.saveButtonText}>
+          {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Save Meal'}
+        </Text>
       </TouchableOpacity>
     </ScrollView>
   );

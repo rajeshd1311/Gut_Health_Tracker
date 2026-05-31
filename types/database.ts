@@ -88,6 +88,7 @@ export interface NoteLog {
   content: string;
   category: NoteCategory;
   created_at: string;
+  updated_at: string;
 }
 
 export interface TriggerHypothesis {
