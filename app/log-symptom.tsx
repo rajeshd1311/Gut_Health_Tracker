@@ -6,10 +6,12 @@ import { COLORS, SYMPTOMS } from '@/lib/constants';
 import { useAuth } from '@/lib/auth';
 import { createSymptomLog } from '@/services/database';
 import { Symptom } from '@/types/database';
+import DateTimePicker from '@/components/DateTimePicker';
 
 export default function LogSymptomScreen() {
   const { user } = useAuth();
   const [selectedSymptoms, setSelectedSymptoms] = useState<Symptom[]>([]);
+  const [timestamp, setTimestamp] = useState(() => new Date());
   const [severity, setSeverity] = useState(5);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -29,7 +31,7 @@ export default function LogSymptomScreen() {
     }
     setError(null);
     setSaving(true);
-    const result = await createSymptomLog(user.id, selectedSymptoms, severity, notes.trim());
+    const result = await createSymptomLog(user.id, selectedSymptoms, severity, notes.trim(), timestamp);
     setSaving(false);
     if (result) {
       router.back();
@@ -46,6 +48,12 @@ export default function LogSymptomScreen() {
 
       <Text style={styles.title}>Log Symptoms</Text>
       <Text style={styles.subtitle}>How are you feeling?</Text>
+
+      <DateTimePicker
+        label="When did symptoms start?"
+        value={timestamp}
+        onChange={setTimestamp}
+      />
 
       <Text style={styles.label}>Select Symptoms</Text>
       <View style={styles.chipContainer}>

@@ -7,10 +7,12 @@ import { COLORS, MEAL_TYPES, TRIGGER_CATEGORIES } from '@/lib/constants';
 import { useAuth } from '@/lib/auth';
 import { createMealLog } from '@/services/database';
 import { MealType, TriggerCategory } from '@/types/database';
+import DateTimePicker from '@/components/DateTimePicker';
 
 export default function LogMealScreen() {
   const { user } = useAuth();
   const [mealType, setMealType] = useState<MealType>('snack');
+  const [timestamp, setTimestamp] = useState(() => new Date());
   const [description, setDescription] = useState('');
   const [portionNote, setPortionNote] = useState('');
   const [triggers, setTriggers] = useState<TriggerCategory[]>([]);
@@ -53,7 +55,8 @@ export default function LogMealScreen() {
       portionNote.trim(),
       photoUri,
       voiceTranscript.trim(),
-      notes.trim()
+      notes.trim(),
+      timestamp
     );
     setSaving(false);
     if (result) {
@@ -71,6 +74,12 @@ export default function LogMealScreen() {
 
       <Text style={styles.title}>Log a Meal</Text>
       <Text style={styles.subtitle}>What did you eat or drink?</Text>
+
+      <DateTimePicker
+        label="When did you eat this?"
+        value={timestamp}
+        onChange={setTimestamp}
+      />
 
       <Text style={styles.label}>Meal Type</Text>
       <View style={styles.typeRow}>

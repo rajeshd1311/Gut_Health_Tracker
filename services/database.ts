@@ -48,7 +48,8 @@ export async function createMealLog(
   portionNote?: string,
   photoUri?: string,
   voiceTranscript?: string,
-  notes?: string
+  notes?: string,
+  timestamp?: Date
 ): Promise<MealLog | null> {
   const { data } = await supabase
     .from('meal_logs')
@@ -61,6 +62,7 @@ export async function createMealLog(
       photo_uri: photoUri || '',
       voice_transcript: voiceTranscript || '',
       notes: notes || '',
+      timestamp: (timestamp || new Date()).toISOString(),
     })
     .select()
     .maybeSingle();
@@ -89,7 +91,8 @@ export async function createSymptomLog(
   userId: string,
   symptoms: Symptom[],
   severity: number,
-  notes?: string
+  notes?: string,
+  timestamp?: Date
 ): Promise<SymptomLog | null> {
   const { data } = await supabase
     .from('symptom_logs')
@@ -98,6 +101,7 @@ export async function createSymptomLog(
       symptoms,
       severity,
       notes: notes || '',
+      timestamp: (timestamp || new Date()).toISOString(),
     })
     .select()
     .maybeSingle();
