@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Modal, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Pressable, StyleSheet, Modal } from 'react-native';
 import { Calendar, Clock, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { COLORS } from '@/lib/constants';
 
@@ -59,8 +59,9 @@ function WebPicker({ value, onChange, onClose }: { value: Date; onChange: (d: Da
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
-        <View onStartShouldSetResponder={() => true} style={styles.pickerCard}>
+      <View style={styles.modalOverlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={styles.pickerCard}>
           <Text style={styles.pickerTitle}>When did this happen?</Text>
 
           <View style={styles.dayRow}>
@@ -105,7 +106,7 @@ function WebPicker({ value, onChange, onClose }: { value: Date; onChange: (d: Da
             <Text style={styles.confirmButtonText}>Confirm</Text>
           </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+      </View>
     </Modal>
   );
 }
