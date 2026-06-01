@@ -60,7 +60,7 @@ function WebPicker({ value, onChange, onClose }: { value: Date; onChange: (d: Da
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
       <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
-        <TouchableOpacity activeOpacity={1} style={styles.pickerCard}>
+        <View onStartShouldSetResponder={() => true} style={styles.pickerCard}>
           <Text style={styles.pickerTitle}>When did this happen?</Text>
 
           <View style={styles.dayRow}>
@@ -104,7 +104,7 @@ function WebPicker({ value, onChange, onClose }: { value: Date; onChange: (d: Da
           <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
             <Text style={styles.confirmButtonText}>Confirm</Text>
           </TouchableOpacity>
-        </TouchableOpacity>
+        </View>
       </TouchableOpacity>
     </Modal>
   );
