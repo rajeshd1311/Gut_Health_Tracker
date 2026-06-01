@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Pressable, StyleSheet, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
 import { Calendar, Clock, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { COLORS } from '@/lib/constants';
 
@@ -34,11 +34,10 @@ function pad(n: number): string {
   return n.toString().padStart(2, '0');
 }
 
-// Web-only inline picker modal
 function WebPicker({ value, onChange, onClose }: { value: Date; onChange: (d: Date) => void; onClose: () => void }) {
   const [hour, setHour] = useState(value.getHours());
   const [minute, setMinute] = useState(value.getMinutes());
-  const [daysOffset, setDaysOffset] = useState(0); // 0 = today, 1 = yesterday, 2 = day before
+  const [daysOffset, setDaysOffset] = useState(0);
 
   const adjustHour = (delta: number) => setHour(h => (h + delta + 24) % 24);
   const adjustMinute = (delta: number) => setMinute(m => (m + delta + 60) % 60);
@@ -50,6 +49,7 @@ function WebPicker({ value, onChange, onClose }: { value: Date; onChange: (d: Da
   ];
 
   const handleConfirm = () => {
+    console.log('[DateTimePicker] Confirm pressed', { hour, minute, daysOffset });
     const result = new Date();
     result.setDate(result.getDate() - daysOffset);
     result.setHours(hour, minute, 0, 0);
@@ -58,56 +58,54 @@ function WebPicker({ value, onChange, onClose }: { value: Date; onChange: (d: Da
   };
 
   return (
-    <Modal transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={styles.pickerCard}>
-          <Text style={styles.pickerTitle}>When did this happen?</Text>
+    <View style={styles.overlayContainer}>
+      <Pressable style={styles.backdrop} onPress={onClose} />
+      <View style={styles.pickerCard}>
+        <Text style={styles.pickerTitle}>When did this happen?</Text>
 
-          <View style={styles.dayRow}>
-            {DAY_OPTIONS.map(opt => (
-              <TouchableOpacity
-                key={opt.offset}
-                style={[styles.dayChip, daysOffset === opt.offset && styles.dayChipActive]}
-                onPress={() => setDaysOffset(opt.offset)}
-              >
-                <Text style={[styles.dayChipText, daysOffset === opt.offset && styles.dayChipTextActive]}>
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <View style={styles.timeRow}>
-            <View style={styles.spinnerCol}>
-              <TouchableOpacity testID="hour-up" onPress={() => adjustHour(1)} style={styles.spinBtn}>
-                <ChevronUp size={22} color={COLORS.text} />
-              </TouchableOpacity>
-              <Text style={styles.spinValue}>{pad(hour)}</Text>
-              <TouchableOpacity testID="hour-down" onPress={() => adjustHour(-1)} style={styles.spinBtn}>
-                <ChevronDown size={22} color={COLORS.text} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.timeSep}>:</Text>
-
-            <View style={styles.spinnerCol}>
-              <TouchableOpacity testID="minute-up" onPress={() => adjustMinute(5)} style={styles.spinBtn}>
-                <ChevronUp size={22} color={COLORS.text} />
-              </TouchableOpacity>
-              <Text style={styles.spinValue}>{pad(minute)}</Text>
-              <TouchableOpacity testID="minute-down" onPress={() => adjustMinute(-5)} style={styles.spinBtn}>
-                <ChevronDown size={22} color={COLORS.text} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
-            <Text style={styles.confirmButtonText}>Confirm</Text>
-          </TouchableOpacity>
+        <View style={styles.dayRow}>
+          {DAY_OPTIONS.map(opt => (
+            <Pressable
+              key={opt.offset}
+              style={[styles.dayChip, daysOffset === opt.offset && styles.dayChipActive]}
+              onPress={() => { console.log('[DateTimePicker] Day chip pressed:', opt.label); setDaysOffset(opt.offset); }}
+            >
+              <Text style={[styles.dayChipText, daysOffset === opt.offset && styles.dayChipTextActive]}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          ))}
         </View>
+
+        <View style={styles.timeRow}>
+          <View style={styles.spinnerCol}>
+            <Pressable testID="hour-up" onPress={() => { console.log('[DateTimePicker] Hour up'); adjustHour(1); }} style={styles.spinBtn}>
+              <ChevronUp size={22} color={COLORS.text} />
+            </Pressable>
+            <Text style={styles.spinValue}>{pad(hour)}</Text>
+            <Pressable testID="hour-down" onPress={() => { console.log('[DateTimePicker] Hour down'); adjustHour(-1); }} style={styles.spinBtn}>
+              <ChevronDown size={22} color={COLORS.text} />
+            </Pressable>
+          </View>
+
+          <Text style={styles.timeSep}>:</Text>
+
+          <View style={styles.spinnerCol}>
+            <Pressable testID="minute-up" onPress={() => { console.log('[DateTimePicker] Minute up'); adjustMinute(5); }} style={styles.spinBtn}>
+              <ChevronUp size={22} color={COLORS.text} />
+            </Pressable>
+            <Text style={styles.spinValue}>{pad(minute)}</Text>
+            <Pressable testID="minute-down" onPress={() => { console.log('[DateTimePicker] Minute down'); adjustMinute(-5); }} style={styles.spinBtn}>
+              <ChevronDown size={22} color={COLORS.text} />
+            </Pressable>
+          </View>
+        </View>
+
+        <Pressable style={styles.confirmButton} onPress={handleConfirm}>
+          <Text style={styles.confirmButtonText}>Confirm</Text>
+        </Pressable>
       </View>
-    </Modal>
+    </View>
   );
 }
 
@@ -166,12 +164,24 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: '500',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+  overlayContainer: {
+    position: 'fixed' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9999,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
+  },
+  backdrop: {
+    position: 'absolute' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   pickerCard: {
     backgroundColor: COLORS.surface,
@@ -179,6 +189,7 @@ const styles = StyleSheet.create({
     padding: 24,
     width: '100%',
     maxWidth: 360,
+    zIndex: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
