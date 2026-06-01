@@ -79,11 +79,11 @@ function WebPicker({ value, onChange, onClose }: { value: Date; onChange: (d: Da
 
           <View style={styles.timeRow}>
             <View style={styles.spinnerCol}>
-              <TouchableOpacity onPress={() => adjustHour(1)} style={styles.spinBtn}>
+              <TouchableOpacity testID="hour-up" onPress={() => adjustHour(1)} style={styles.spinBtn}>
                 <ChevronUp size={22} color={COLORS.text} />
               </TouchableOpacity>
               <Text style={styles.spinValue}>{pad(hour)}</Text>
-              <TouchableOpacity onPress={() => adjustHour(-1)} style={styles.spinBtn}>
+              <TouchableOpacity testID="hour-down" onPress={() => adjustHour(-1)} style={styles.spinBtn}>
                 <ChevronDown size={22} color={COLORS.text} />
               </TouchableOpacity>
             </View>
@@ -91,11 +91,11 @@ function WebPicker({ value, onChange, onClose }: { value: Date; onChange: (d: Da
             <Text style={styles.timeSep}>:</Text>
 
             <View style={styles.spinnerCol}>
-              <TouchableOpacity onPress={() => adjustMinute(5)} style={styles.spinBtn}>
+              <TouchableOpacity testID="minute-up" onPress={() => adjustMinute(5)} style={styles.spinBtn}>
                 <ChevronUp size={22} color={COLORS.text} />
               </TouchableOpacity>
               <Text style={styles.spinValue}>{pad(minute)}</Text>
-              <TouchableOpacity onPress={() => adjustMinute(-5)} style={styles.spinBtn}>
+              <TouchableOpacity testID="minute-down" onPress={() => adjustMinute(-5)} style={styles.spinBtn}>
                 <ChevronDown size={22} color={COLORS.text} />
               </TouchableOpacity>
             </View>
