@@ -200,6 +200,43 @@ export async function getTodayLogs(userId: string) {
   };
 }
 
+export async function getLogsForDate(userId: string, date: Date) {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(date);
+  end.setHours(23, 59, 59, 999);
+
+  const [meals, symptoms, notes] = await Promise.all([
+    supabase
+      .from('meal_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('timestamp', start.toISOString())
+      .lte('timestamp', end.toISOString())
+      .order('timestamp', { ascending: false }),
+    supabase
+      .from('symptom_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('timestamp', start.toISOString())
+      .lte('timestamp', end.toISOString())
+      .order('timestamp', { ascending: false }),
+    supabase
+      .from('note_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('timestamp', start.toISOString())
+      .lte('timestamp', end.toISOString())
+      .order('timestamp', { ascending: false }),
+  ]);
+
+  return {
+    meals: (meals.data || []) as MealLog[],
+    symptoms: (symptoms.data || []) as SymptomLog[],
+    notes: (notes.data || []) as NoteLog[],
+  };
+}
+
 export async function getLogsForDateRange(userId: string, startDate: Date, endDate: Date) {
   const [meals, symptoms] = await Promise.all([
     supabase

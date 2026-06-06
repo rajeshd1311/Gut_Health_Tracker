@@ -1,5 +1,11 @@
 jest.mock('@/lib/supabase', () => ({
-  supabase: { from: jest.fn(), auth: { getSession: jest.fn(), onAuthStateChange: jest.fn(() => ({ data: { subscription: { unsubscribe: jest.fn() } } })) } },
+  supabase: {
+    from: jest.fn(),
+    auth: {
+      getSession: jest.fn(),
+      onAuthStateChange: jest.fn(() => ({ data: { subscription: { unsubscribe: jest.fn() } } })),
+    },
+  },
 }));
 
 jest.mock('expo-router', () => require('../helpers/navigation-mock'));
@@ -10,12 +16,15 @@ jest.mock('@/lib/auth', () => ({
   AuthProvider: ({ children }: any) => children,
 }));
 
-const mockGetTodayLogs = jest.fn();
+const mockGetLogsForDateRange = jest.fn();
+const mockGetLogsForDate = jest.fn();
 const mockDeleteMealLog = jest.fn();
 const mockDeleteSymptomLog = jest.fn();
 const mockDeleteNoteLog = jest.fn();
+
 jest.mock('@/services/database', () => ({
-  getTodayLogs: (...args: any[]) => mockGetTodayLogs(...args),
+  getLogsForDateRange: (...args: any[]) => mockGetLogsForDateRange(...args),
+  getLogsForDate: (...args: any[]) => mockGetLogsForDate(...args),
   deleteMealLog: (...args: any[]) => mockDeleteMealLog(...args),
   deleteSymptomLog: (...args: any[]) => mockDeleteSymptomLog(...args),
   deleteNoteLog: (...args: any[]) => mockDeleteNoteLog(...args),
@@ -35,12 +44,11 @@ import { MealLog, SymptomLog, NoteLog } from '@/types/database';
 const { router } = require('expo-router');
 
 const now = new Date();
-const hourAgo = new Date(now.getTime() - 3600000);
 
 const mockMeal: MealLog = {
   id: 'm1',
   user_id: 'u1',
-  timestamp: hourAgo.toISOString(),
+  timestamp: now.toISOString(),
   meal_type: 'breakfast',
   description: 'Oatmeal with berries',
   portion_note: '',
@@ -48,8 +56,8 @@ const mockMeal: MealLog = {
   photo_uri: '',
   voice_transcript: '',
   notes: 'Added milk',
-  created_at: hourAgo.toISOString(),
-  updated_at: hourAgo.toISOString(),
+  created_at: now.toISOString(),
+  updated_at: now.toISOString(),
 };
 
 const mockSymptom: SymptomLog = {
@@ -76,77 +84,107 @@ const mockNote: NoteLog = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockUseAuth.mockReturnValue({ user: { id: 'u1' } });
-  mockGetTodayLogs.mockResolvedValue({ meals: [], symptoms: [], notes: [] });
+  mockGetLogsForDateRange.mockResolvedValue({ meals: [], symptoms: [] });
+  mockGetLogsForDate.mockResolvedValue({ meals: [], symptoms: [], notes: [] });
   mockDeleteMealLog.mockResolvedValue(true);
   mockDeleteSymptomLog.mockResolvedValue(true);
   mockDeleteNoteLog.mockResolvedValue(true);
 });
 
-describe('Timeline Screen', () => {
-  test('shows empty state when no entries', async () => {
+describe('Timeline Screen (History Calendar)', () => {
+  test('renders History title and subtitle', async () => {
     const { getByText } = render(<TimelineScreen />);
     await waitFor(() => {
-      expect(getByText(/No entries yet today/i)).toBeTruthy();
+      expect(getByText('History')).toBeTruthy();
+      expect(getByText(/Tap any date/i)).toBeTruthy();
     });
   });
 
-  test('renders a meal entry card with description and trigger tags', async () => {
-    mockGetTodayLogs.mockResolvedValue({ meals: [mockMeal], symptoms: [], notes: [] });
+  test('calls getLogsForDateRange with current month boundaries on mount', async () => {
+    render(<TimelineScreen />);
+    await waitFor(() => {
+      expect(mockGetLogsForDateRange).toHaveBeenCalled();
+      const [userId, startDate, endDate] = mockGetLogsForDateRange.mock.calls[0];
+      expect(userId).toBe('u1');
+      expect(startDate.getDate()).toBe(1);
+      expect(endDate.getMonth()).toBe(startDate.getMonth());
+    });
+  });
+
+  test('renders the current month name in the calendar header', async () => {
+    const monthName = now.toLocaleDateString('en-US', { month: 'long' });
     const { getByText } = render(<TimelineScreen />);
+    await waitFor(() => {
+      expect(getByText(new RegExp(monthName))).toBeTruthy();
+    });
+  });
+
+  test('tapping today cell calls getLogsForDate', async () => {
+    mockGetLogsForDate.mockResolvedValue({
+      meals: [mockMeal],
+      symptoms: [],
+      notes: [],
+    });
+
+    const { getByText } = render(<TimelineScreen />);
+    const todayNum = String(now.getDate());
+    fireEvent.press(getByText(todayNum));
+
+    await waitFor(() => {
+      expect(mockGetLogsForDate).toHaveBeenCalled();
+    });
+  });
+
+  test('modal shows meal entry after day is selected', async () => {
+    mockGetLogsForDate.mockResolvedValue({
+      meals: [mockMeal],
+      symptoms: [],
+      notes: [],
+    });
+
+    const { getByText } = render(<TimelineScreen />);
+    fireEvent.press(getByText(String(now.getDate())));
+
     await waitFor(() => {
       expect(getByText('Oatmeal with berries')).toBeTruthy();
-      expect(getByText(/Breakfast/i)).toBeTruthy();
-      expect(getByText('dairy')).toBeTruthy();
     });
   });
 
-  test('renders meal notes when present', async () => {
-    mockGetTodayLogs.mockResolvedValue({ meals: [mockMeal], symptoms: [], notes: [] });
-    const { getByText } = render(<TimelineScreen />);
-    await waitFor(() => {
-      expect(getByText('Added milk')).toBeTruthy();
+  test('modal shows symptom severity after day is selected', async () => {
+    mockGetLogsForDate.mockResolvedValue({
+      meals: [],
+      symptoms: [mockSymptom],
+      notes: [],
     });
-  });
 
-  test('renders a symptom entry card with symptoms and severity', async () => {
-    mockGetTodayLogs.mockResolvedValue({ meals: [], symptoms: [mockSymptom], notes: [] });
     const { getByText } = render(<TimelineScreen />);
+    fireEvent.press(getByText(String(now.getDate())));
+
     await waitFor(() => {
-      expect(getByText(/Symptoms/i)).toBeTruthy();
-      expect(getByText('bloating')).toBeTruthy();
       expect(getByText(/7\/10/)).toBeTruthy();
     });
   });
 
-  test('renders a note entry card with category and content', async () => {
-    mockGetTodayLogs.mockResolvedValue({ meals: [], symptoms: [], notes: [mockNote] });
+  test('modal shows note content after day is selected', async () => {
+    mockGetLogsForDate.mockResolvedValue({
+      meals: [],
+      symptoms: [],
+      notes: [mockNote],
+    });
+
     const { getByText } = render(<TimelineScreen />);
+    fireEvent.press(getByText(String(now.getDate())));
+
     await waitFor(() => {
-      expect(getByText(/Sleep/i)).toBeTruthy();
       expect(getByText('Slept poorly last night')).toBeTruthy();
     });
   });
 
-  test('entries are sorted newest-first', async () => {
-    mockGetTodayLogs.mockResolvedValue({
-      meals: [mockMeal], // older
-      symptoms: [mockSymptom], // newer
-      notes: [],
-    });
-    const { getByText } = render(<TimelineScreen />);
+  test('does not call getLogsForDateRange when user is null', async () => {
+    mockUseAuth.mockReturnValue({ user: null });
+    render(<TimelineScreen />);
     await waitFor(() => {
-      expect(getByText('Oatmeal with berries')).toBeTruthy();
-      expect(getByText(/Symptoms/i)).toBeTruthy();
+      expect(mockGetLogsForDateRange).not.toHaveBeenCalled();
     });
-  });
-
-  test('delete calls the appropriate delete function', async () => {
-    mockGetTodayLogs.mockResolvedValue({ meals: [mockMeal], symptoms: [], notes: [] });
-    const { getByText } = render(<TimelineScreen />);
-    await waitFor(() => expect(getByText('Oatmeal with berries')).toBeTruthy());
-
-    // The Trash2 icon is rendered but without a unique testID we can rely on
-    // We verify the delete function is available and works when called
-    expect(mockDeleteMealLog).not.toHaveBeenCalled();
   });
 });

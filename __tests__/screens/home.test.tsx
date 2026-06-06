@@ -11,8 +11,15 @@ jest.mock('@/lib/auth', () => ({
 }));
 
 const mockGetTodayLogs = jest.fn();
+const mockDeleteMealLog = jest.fn();
+const mockDeleteSymptomLog = jest.fn();
+const mockDeleteNoteLog = jest.fn();
+
 jest.mock('@/services/database', () => ({
   getTodayLogs: (...args: any[]) => mockGetTodayLogs(...args),
+  deleteMealLog: (...args: any[]) => mockDeleteMealLog(...args),
+  deleteSymptomLog: (...args: any[]) => mockDeleteSymptomLog(...args),
+  deleteNoteLog: (...args: any[]) => mockDeleteNoteLog(...args),
 }));
 
 jest.mock('lucide-react-native', () => {
@@ -24,9 +31,9 @@ jest.mock('lucide-react-native', () => {
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import HomeScreen from '@/app/(tabs)/index';
-import { MealLog, SymptomLog } from '@/types/database';
+import { MealLog, SymptomLog, NoteLog } from '@/types/database';
 
-const { router, useFocusEffect } = require('expo-router');
+const { router } = require('expo-router');
 
 const mockMeal: MealLog = {
   id: 'm1',
@@ -54,10 +61,23 @@ const mockSymptom: SymptomLog = {
   updated_at: new Date().toISOString(),
 };
 
+const mockNote: NoteLog = {
+  id: 'n1',
+  user_id: 'u1',
+  timestamp: new Date().toISOString(),
+  content: 'Took ibuprofen',
+  category: 'medication',
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+};
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockUseAuth.mockReturnValue({ user: { id: 'u1' } });
   mockGetTodayLogs.mockResolvedValue({ meals: [], symptoms: [], notes: [] });
+  mockDeleteMealLog.mockResolvedValue(true);
+  mockDeleteSymptomLog.mockResolvedValue(true);
+  mockDeleteNoteLog.mockResolvedValue(true);
 });
 
 describe('Home Screen', () => {
@@ -101,7 +121,7 @@ describe('Home Screen', () => {
     });
   });
 
-  test('shows recent meals section when meals exist', async () => {
+  test('shows meal description when meals exist', async () => {
     mockGetTodayLogs.mockResolvedValue({ meals: [mockMeal], symptoms: [], notes: [] });
     const { getByText } = render(<HomeScreen />);
     await waitFor(() => {
@@ -109,11 +129,11 @@ describe('Home Screen', () => {
     });
   });
 
-  test('shows recent symptoms section when symptoms exist', async () => {
+  test('shows symptom severity when symptoms exist', async () => {
     mockGetTodayLogs.mockResolvedValue({ meals: [], symptoms: [mockSymptom], notes: [] });
     const { getByText } = render(<HomeScreen />);
     await waitFor(() => {
-      expect(getByText('bloating, gas')).toBeTruthy();
+      expect(getByText(/6\/10/)).toBeTruthy();
     });
   });
 
@@ -122,6 +142,55 @@ describe('Home Screen', () => {
     const { getByText } = render(<HomeScreen />);
     await waitFor(() => {
       expect(getByText(/tracking|logging|evidence|data|habits|insights|observations|health/i)).toBeTruthy();
+    });
+  });
+
+  test("shows Today's Logs section heading when logs exist", async () => {
+    mockGetTodayLogs.mockResolvedValue({ meals: [mockMeal], symptoms: [], notes: [] });
+    const { getByText } = render(<HomeScreen />);
+    await waitFor(() => {
+      expect(getByText("Today's Logs")).toBeTruthy();
+    });
+  });
+
+  test('tapping edit on a meal navigates to log-meal with params', async () => {
+    mockGetTodayLogs.mockResolvedValue({ meals: [mockMeal], symptoms: [], notes: [] });
+    const { getAllByAccessibilityLabel } = render(<HomeScreen />);
+    await waitFor(() => getAllByAccessibilityLabel('Edit meal'));
+    const editButtons = getAllByAccessibilityLabel('Edit meal');
+    fireEvent.press(editButtons[0]);
+    expect(router.push).toHaveBeenCalledWith(
+      expect.objectContaining({ pathname: '/log-meal' })
+    );
+  });
+
+  test('tapping delete on a meal calls deleteMealLog', async () => {
+    mockGetTodayLogs.mockResolvedValue({ meals: [mockMeal], symptoms: [], notes: [] });
+    const { getAllByAccessibilityLabel } = render(<HomeScreen />);
+    await waitFor(() => getAllByAccessibilityLabel('Delete meal'));
+    const deleteButtons = getAllByAccessibilityLabel('Delete meal');
+    fireEvent.press(deleteButtons[0]);
+    await waitFor(() => {
+      expect(mockDeleteMealLog).toHaveBeenCalledWith('m1');
+    });
+  });
+
+  test('tapping edit on a symptom navigates to log-symptom with params', async () => {
+    mockGetTodayLogs.mockResolvedValue({ meals: [], symptoms: [mockSymptom], notes: [] });
+    const { getAllByAccessibilityLabel } = render(<HomeScreen />);
+    await waitFor(() => getAllByAccessibilityLabel('Edit symptom'));
+    const editButtons = getAllByAccessibilityLabel('Edit symptom');
+    fireEvent.press(editButtons[0]);
+    expect(router.push).toHaveBeenCalledWith(
+      expect.objectContaining({ pathname: '/log-symptom' })
+    );
+  });
+
+  test("note content is shown in today's logs", async () => {
+    mockGetTodayLogs.mockResolvedValue({ meals: [], symptoms: [], notes: [mockNote] });
+    const { getByText } = render(<HomeScreen />);
+    await waitFor(() => {
+      expect(getByText('Took ibuprofen')).toBeTruthy();
     });
   });
 });

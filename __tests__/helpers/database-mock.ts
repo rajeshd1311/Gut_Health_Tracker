@@ -9,6 +9,12 @@ export const mockGetLogsForDateRange = jest.fn().mockResolvedValue({
   symptoms: [],
 });
 
+export const mockGetLogsForDate = jest.fn().mockResolvedValue({
+  meals: [],
+  symptoms: [],
+  notes: [],
+});
+
 export const mockGetUserProfile = jest.fn().mockResolvedValue(null);
 export const mockCreateUserProfile = jest.fn().mockResolvedValue(null);
 export const mockCreateMealLog = jest.fn().mockResolvedValue({ id: 'new-meal-id' });
@@ -27,6 +33,7 @@ export function getDatabaseMockModule() {
   return {
     getTodayLogs: mockGetTodayLogs,
     getLogsForDateRange: mockGetLogsForDateRange,
+    getLogsForDate: mockGetLogsForDate,
     getUserProfile: mockGetUserProfile,
     createUserProfile: mockCreateUserProfile,
     createMealLog: mockCreateMealLog,
@@ -46,6 +53,7 @@ export function getDatabaseMockModule() {
 export function resetAllDatabaseMocks() {
   mockGetTodayLogs.mockReset().mockResolvedValue({ meals: [], symptoms: [], notes: [] });
   mockGetLogsForDateRange.mockReset().mockResolvedValue({ meals: [], symptoms: [] });
+  mockGetLogsForDate.mockReset().mockResolvedValue({ meals: [], symptoms: [], notes: [] });
   mockGetUserProfile.mockReset().mockResolvedValue(null);
   mockCreateUserProfile.mockReset().mockResolvedValue(null);
   mockCreateMealLog.mockReset().mockResolvedValue({ id: 'new-meal-id' });

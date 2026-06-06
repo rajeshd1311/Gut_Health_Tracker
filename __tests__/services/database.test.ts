@@ -22,6 +22,7 @@ import {
   updateNoteLog,
   deleteNoteLog,
   getTodayLogs,
+  getLogsForDate,
   getLogsForDateRange,
   getUserProfile,
   createUserProfile,
@@ -498,6 +499,88 @@ describe('getLogsForDateRange', () => {
     expect(mealChain.lte).toHaveBeenCalledWith('timestamp', end.toISOString());
     expect(symptomChain.gte).toHaveBeenCalledWith('timestamp', start.toISOString());
     expect(symptomChain.lte).toHaveBeenCalledWith('timestamp', end.toISOString());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getLogsForDate
+// ---------------------------------------------------------------------------
+
+describe('getLogsForDate', () => {
+  function dateQueryChain(data: any[]) {
+    return {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      gte: jest.fn().mockReturnThis(),
+      lte: jest.fn().mockReturnThis(),
+      order: jest.fn().mockResolvedValue({ data, error: null }),
+    };
+  }
+
+  test('queries all three tables and returns combined result', async () => {
+    mockFrom
+      .mockReturnValueOnce(dateQueryChain([mockMeal]))    // meal_logs
+      .mockReturnValueOnce(dateQueryChain([mockSymptom])) // symptom_logs
+      .mockReturnValueOnce(dateQueryChain([mockNote]));   // note_logs
+
+    const targetDate = new Date('2024-03-10');
+    const result = await getLogsForDate('u1', targetDate);
+
+    expect(mockFrom).toHaveBeenCalledWith('meal_logs');
+    expect(mockFrom).toHaveBeenCalledWith('symptom_logs');
+    expect(mockFrom).toHaveBeenCalledWith('note_logs');
+    expect(result.meals).toEqual([mockMeal]);
+    expect(result.symptoms).toEqual([mockSymptom]);
+    expect(result.notes).toEqual([mockNote]);
+  });
+
+  test('queries timestamps within the given date (start and end of day)', async () => {
+    const mealChain = dateQueryChain([]);
+    const symptomChain = dateQueryChain([]);
+    const noteChain = dateQueryChain([]);
+    mockFrom
+      .mockReturnValueOnce(mealChain)
+      .mockReturnValueOnce(symptomChain)
+      .mockReturnValueOnce(noteChain);
+
+    const targetDate = new Date('2024-03-10');
+    await getLogsForDate('u1', targetDate);
+
+    const expectedStart = new Date('2024-03-10');
+    expectedStart.setHours(0, 0, 0, 0);
+    const expectedEnd = new Date('2024-03-10');
+    expectedEnd.setHours(23, 59, 59, 999);
+
+    expect(mealChain.gte).toHaveBeenCalledWith('timestamp', expectedStart.toISOString());
+    expect(mealChain.lte).toHaveBeenCalledWith('timestamp', expectedEnd.toISOString());
+  });
+
+  test('filters by user_id on all three tables', async () => {
+    const mealChain = dateQueryChain([]);
+    const symptomChain = dateQueryChain([]);
+    const noteChain = dateQueryChain([]);
+    mockFrom
+      .mockReturnValueOnce(mealChain)
+      .mockReturnValueOnce(symptomChain)
+      .mockReturnValueOnce(noteChain);
+
+    await getLogsForDate('u1', new Date('2024-03-10'));
+
+    expect(mealChain.eq).toHaveBeenCalledWith('user_id', 'u1');
+    expect(symptomChain.eq).toHaveBeenCalledWith('user_id', 'u1');
+    expect(noteChain.eq).toHaveBeenCalledWith('user_id', 'u1');
+  });
+
+  test('returns empty arrays when tables have no data', async () => {
+    mockFrom
+      .mockReturnValueOnce(dateQueryChain([]))
+      .mockReturnValueOnce(dateQueryChain([]))
+      .mockReturnValueOnce(dateQueryChain([]));
+
+    const result = await getLogsForDate('u1', new Date('2024-03-10'));
+    expect(result.meals).toEqual([]);
+    expect(result.symptoms).toEqual([]);
+    expect(result.notes).toEqual([]);
   });
 });
 

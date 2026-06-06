@@ -1,179 +1,179 @@
-import React, { useCallback, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { useFocusEffect, router } from 'expo-router';
-import { UtensilsCrossed, Activity, StickyNote, Trash2, Pencil } from 'lucide-react-native';
 import { COLORS } from '@/lib/constants';
 import { useAuth } from '@/lib/auth';
-import { getTodayLogs, deleteMealLog, deleteSymptomLog, deleteNoteLog } from '@/services/database';
+import {
+  getLogsForDateRange,
+  getLogsForDate,
+  deleteMealLog,
+  deleteSymptomLog,
+  deleteNoteLog,
+} from '@/services/database';
 import { MealLog, SymptomLog, NoteLog, TimelineEntry } from '@/types/database';
+import MonthCalendar from '@/components/MonthCalendar';
+import DayLogsModal from '@/components/DayLogsModal';
+
+function toDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 
 export default function TimelineScreen() {
   const { user } = useAuth();
-  const [entries, setEntries] = useState<TimelineEntry[]>([]);
+  const today = new Date();
+
+  const [currentYear, setCurrentYear] = useState(today.getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(today.getMonth());
+  const [markedDates, setMarkedDates] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [dayMeals, setDayMeals] = useState<MealLog[]>([]);
+  const [daySymptoms, setDaySymptoms] = useState<SymptomLog[]>([]);
+  const [dayNotes, setDayNotes] = useState<NoteLog[]>([]);
+  const [loadingDay, setLoadingDay] = useState(false);
+
+  const loadMonthMarkers = useCallback(async () => {
     if (!user) return;
-    const data = await getTodayLogs(user.id);
-    const combined: TimelineEntry[] = [
-      ...data.meals.map(m => ({ type: 'meal' as const, data: m })),
-      ...data.symptoms.map(s => ({ type: 'symptom' as const, data: s })),
-      ...data.notes.map(n => ({ type: 'note' as const, data: n })),
-    ].sort((a, b) => new Date(b.data.timestamp).getTime() - new Date(a.data.timestamp).getTime());
-    setEntries(combined);
-  }, [user]);
+    const start = new Date(currentYear, currentMonth, 1);
+    const end = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59, 999);
+
+    const rangeData = await getLogsForDateRange(user.id, start, end);
+
+    const marked = new Set<string>();
+    for (const meal of rangeData.meals) {
+      marked.add(toDateKey(new Date(meal.timestamp)));
+    }
+    for (const symptom of rangeData.symptoms) {
+      marked.add(toDateKey(new Date(symptom.timestamp)));
+    }
+    setMarkedDates(marked);
+  }, [user, currentYear, currentMonth]);
 
   useFocusEffect(
     useCallback(() => {
-      loadData();
-    }, [loadData])
+      loadMonthMarkers();
+    }, [loadMonthMarkers])
   );
+
+  useEffect(() => {
+    loadMonthMarkers();
+  }, [currentYear, currentMonth]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    await loadMonthMarkers();
     setRefreshing(false);
   };
 
-  const handleDelete = async (entry: TimelineEntry) => {
-    let success = false;
-    if (entry.type === 'meal') {
-      success = await deleteMealLog(entry.data.id);
-    } else if (entry.type === 'symptom') {
-      success = await deleteSymptomLog(entry.data.id);
+  const handleMonthChange = (direction: 'prev' | 'next') => {
+    if (direction === 'next') {
+      const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
+      const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
+      setCurrentMonth(nextMonth);
+      setCurrentYear(nextYear);
     } else {
-      success = await deleteNoteLog(entry.data.id);
-    }
-    if (success) {
-      setEntries(prev => prev.filter(e => e.data.id !== entry.data.id));
+      const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+      setCurrentMonth(prevMonth);
+      setCurrentYear(prevYear);
     }
   };
 
+  const handleDayPress = async (date: Date) => {
+    setSelectedDate(date);
+    setModalVisible(true);
+    setLoadingDay(true);
+    setDayMeals([]);
+    setDaySymptoms([]);
+    setDayNotes([]);
+
+    if (!user) {
+      setLoadingDay(false);
+      return;
+    }
+
+    const data = await getLogsForDate(user.id, date);
+    setDayMeals(data.meals);
+    setDaySymptoms(data.symptoms);
+    setDayNotes(data.notes);
+    setLoadingDay(false);
+  };
+
   const handleEdit = (entry: TimelineEntry) => {
+    setModalVisible(false);
     const params = { id: entry.data.id, entry: JSON.stringify(entry.data) };
     if (entry.type === 'meal') router.push({ pathname: '/log-meal', params });
     else if (entry.type === 'symptom') router.push({ pathname: '/log-symptom', params });
     else router.push({ pathname: '/log-note', params });
   };
 
-  const formatTime = (timestamp: string) =>
-    new Date(timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-
-  const renderEntry = (entry: TimelineEntry) => {
+  const handleDelete = async (entry: TimelineEntry) => {
+    let success = false;
     if (entry.type === 'meal') {
-      const meal = entry.data as MealLog;
-      return (
-        <View key={meal.id} style={[styles.card, { borderLeftColor: COLORS.primary }]}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardIcon}>
-              <UtensilsCrossed color={COLORS.primary} size={18} />
-            </View>
-            <View style={styles.cardInfo}>
-              <Text style={styles.cardType}>{meal.meal_type.charAt(0).toUpperCase() + meal.meal_type.slice(1)}</Text>
-              <Text style={styles.cardTime}>{formatTime(meal.timestamp)}</Text>
-            </View>
-            <View style={styles.cardActions}>
-              <TouchableOpacity onPress={() => handleEdit(entry)} style={styles.actionButton}>
-                <Pencil color={COLORS.textTertiary} size={15} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleDelete(entry)} style={styles.actionButton}>
-                <Trash2 color={COLORS.textTertiary} size={15} />
-              </TouchableOpacity>
-            </View>
-          </View>
-          <Text style={styles.cardDescription}>{meal.description}</Text>
-          {meal.trigger_categories.length > 0 && (
-            <View style={styles.tagRow}>
-              {meal.trigger_categories.map(t => (
-                <View key={t} style={styles.tag}>
-                  <Text style={styles.tagText}>{t.replace(/_/g, ' ')}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-          {meal.notes ? <Text style={styles.cardNotes}>{meal.notes}</Text> : null}
-        </View>
-      );
+      success = await deleteMealLog(entry.data.id);
+      if (success) setDayMeals(prev => prev.filter(m => m.id !== entry.data.id));
+    } else if (entry.type === 'symptom') {
+      success = await deleteSymptomLog(entry.data.id);
+      if (success) setDaySymptoms(prev => prev.filter(s => s.id !== entry.data.id));
+    } else {
+      success = await deleteNoteLog(entry.data.id);
+      if (success) setDayNotes(prev => prev.filter(n => n.id !== entry.data.id));
     }
 
-    if (entry.type === 'symptom') {
-      const symptom = entry.data as SymptomLog;
-      return (
-        <View key={symptom.id} style={[styles.card, { borderLeftColor: COLORS.warning }]}>
-          <View style={styles.cardHeader}>
-            <View style={[styles.cardIcon, { backgroundColor: COLORS.symptomCard }]}>
-              <Activity color={COLORS.warning} size={18} />
-            </View>
-            <View style={styles.cardInfo}>
-              <Text style={styles.cardType}>Symptoms</Text>
-              <Text style={styles.cardTime}>{formatTime(symptom.timestamp)}</Text>
-            </View>
-            <View style={styles.cardActions}>
-              <TouchableOpacity onPress={() => handleEdit(entry)} style={styles.actionButton}>
-                <Pencil color={COLORS.textTertiary} size={15} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleDelete(entry)} style={styles.actionButton}>
-                <Trash2 color={COLORS.textTertiary} size={15} />
-              </TouchableOpacity>
-            </View>
-          </View>
-          <View style={styles.tagRow}>
-            {symptom.symptoms.map(s => (
-              <View key={s} style={[styles.tag, { backgroundColor: COLORS.symptomCard }]}>
-                <Text style={[styles.tagText, { color: COLORS.warning }]}>{s.replace(/_/g, ' ')}</Text>
-              </View>
-            ))}
-          </View>
-          <Text style={styles.cardDescription}>Severity: {symptom.severity}/10</Text>
-          {symptom.notes ? <Text style={styles.cardNotes}>{symptom.notes}</Text> : null}
-        </View>
-      );
-    }
+    if (success && selectedDate) {
+      const remainingMeals = entry.type === 'meal'
+        ? dayMeals.filter(m => m.id !== entry.data.id)
+        : dayMeals;
+      const remainingSymptoms = entry.type === 'symptom'
+        ? daySymptoms.filter(s => s.id !== entry.data.id)
+        : daySymptoms;
+      const remainingNotes = entry.type === 'note'
+        ? dayNotes.filter(n => n.id !== entry.data.id)
+        : dayNotes;
 
-    const note = entry.data as NoteLog;
-    return (
-      <View key={note.id} style={[styles.card, { borderLeftColor: COLORS.secondary }]}>
-        <View style={styles.cardHeader}>
-          <View style={[styles.cardIcon, { backgroundColor: COLORS.noteCard }]}>
-            <StickyNote color={COLORS.secondary} size={18} />
-          </View>
-          <View style={styles.cardInfo}>
-            <Text style={styles.cardType}>{note.category.charAt(0).toUpperCase() + note.category.slice(1)}</Text>
-            <Text style={styles.cardTime}>{formatTime(note.timestamp)}</Text>
-          </View>
-          <View style={styles.cardActions}>
-              <TouchableOpacity onPress={() => handleEdit(entry)} style={styles.actionButton}>
-                <Pencil color={COLORS.textTertiary} size={15} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleDelete(entry)} style={styles.actionButton}>
-                <Trash2 color={COLORS.textTertiary} size={15} />
-              </TouchableOpacity>
-            </View>
-        </View>
-        <Text style={styles.cardDescription}>{note.content}</Text>
-      </View>
-    );
+      if (remainingMeals.length + remainingSymptoms.length + remainingNotes.length === 0) {
+        const key = toDateKey(selectedDate);
+        setMarkedDates(prev => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+      }
+    }
   };
 
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+      }
     >
-      <Text style={styles.title}>Timeline</Text>
-      <Text style={styles.subtitle}>
-        {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-      </Text>
+      <Text style={styles.title}>History</Text>
+      <Text style={styles.subtitle}>Tap any date to view and edit your logs</Text>
 
-      {entries.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>No entries yet today</Text>
-          <Text style={styles.emptyText}>Your meals, symptoms, and notes will appear here in chronological order.</Text>
-        </View>
-      ) : (
-        entries.map(renderEntry)
-      )}
+      <MonthCalendar
+        year={currentYear}
+        month={currentMonth}
+        onMonthChange={handleMonthChange}
+        markedDates={markedDates}
+        onDayPress={handleDayPress}
+      />
+
+      <DayLogsModal
+        visible={modalVisible}
+        date={selectedDate}
+        meals={dayMeals}
+        symptoms={daySymptoms}
+        notes={dayNotes}
+        loading={loadingDay}
+        onClose={() => setModalVisible(false)}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
     </ScrollView>
   );
 }
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingTop: 60,
-    paddingBottom: 32,
+    paddingBottom: 40,
   },
   title: {
     fontSize: 28,
@@ -197,96 +197,6 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     color: COLORS.textSecondary,
-    marginBottom: 24,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderLeftWidth: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  cardIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: COLORS.mealCard,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  cardInfo: {
-    flex: 1,
-  },
-  cardType: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  cardTime: {
-    fontSize: 12,
-    color: COLORS.textTertiary,
-  },
-  cardActions: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  actionButton: {
-    padding: 8,
-  },
-  cardDescription: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
-  },
-  cardNotes: {
-    fontSize: 13,
-    color: COLORS.textTertiary,
-    marginTop: 6,
-    fontStyle: 'italic',
-  },
-  tagRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 8,
-  },
-  tag: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: COLORS.mealCard,
-  },
-  tagText: {
-    fontSize: 11,
-    color: COLORS.primary,
-    fontWeight: '500',
-    textTransform: 'capitalize',
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
+    marginBottom: 20,
   },
 });

@@ -1,11 +1,15 @@
 import React, { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { useFocusEffect, router } from 'expo-router';
-import { UtensilsCrossed, Activity, StickyNote } from 'lucide-react-native';
+import { UtensilsCrossed, Activity, StickyNote, Pencil, Trash2 } from 'lucide-react-native';
 import { COLORS, REWARD_MESSAGES } from '@/lib/constants';
 import { useAuth } from '@/lib/auth';
-import { getTodayLogs } from '@/services/database';
-import { MealLog, SymptomLog, NoteLog } from '@/types/database';
+import { getTodayLogs, deleteMealLog, deleteSymptomLog, deleteNoteLog } from '@/services/database';
+import { MealLog, SymptomLog, NoteLog, TimelineEntry } from '@/types/database';
+
+function formatTime(timestamp: string): string {
+  return new Date(timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
 
 export default function HomeScreen() {
   const { user } = useAuth();
@@ -34,8 +38,161 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
+  const handleEdit = (entry: TimelineEntry) => {
+    const params = { id: entry.data.id, entry: JSON.stringify(entry.data) };
+    if (entry.type === 'meal') router.push({ pathname: '/log-meal', params });
+    else if (entry.type === 'symptom') router.push({ pathname: '/log-symptom', params });
+    else router.push({ pathname: '/log-note', params });
+  };
+
+  const handleDelete = async (entry: TimelineEntry) => {
+    if (entry.type === 'meal') {
+      const ok = await deleteMealLog(entry.data.id);
+      if (ok) setMeals(prev => prev.filter(m => m.id !== entry.data.id));
+    } else if (entry.type === 'symptom') {
+      const ok = await deleteSymptomLog(entry.data.id);
+      if (ok) setSymptoms(prev => prev.filter(s => s.id !== entry.data.id));
+    } else {
+      const ok = await deleteNoteLog(entry.data.id);
+      if (ok) setNotes(prev => prev.filter(n => n.id !== entry.data.id));
+    }
+  };
+
   const todayReward = REWARD_MESSAGES[new Date().getDate() % REWARD_MESSAGES.length];
-  const totalLogs = meals.length + symptoms.length;
+  const totalLogs = meals.length + symptoms.length + notes.length;
+  const hasLogs = totalLogs > 0;
+
+  const allEntries: TimelineEntry[] = [
+    ...meals.map(m => ({ type: 'meal' as const, data: m })),
+    ...symptoms.map(s => ({ type: 'symptom' as const, data: s })),
+    ...notes.map(n => ({ type: 'note' as const, data: n })),
+  ].sort((a, b) => new Date(b.data.timestamp).getTime() - new Date(a.data.timestamp).getTime());
+
+  const renderEntry = (entry: TimelineEntry) => {
+    if (entry.type === 'meal') {
+      const meal = entry.data as MealLog;
+      return (
+        <View key={meal.id} style={[styles.card, { borderLeftColor: COLORS.primary }]}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardIcon}>
+              <UtensilsCrossed color={COLORS.primary} size={16} />
+            </View>
+            <View style={styles.cardInfo}>
+              <Text style={styles.cardType}>
+                {meal.meal_type.charAt(0).toUpperCase() + meal.meal_type.slice(1)}
+              </Text>
+              <Text style={styles.cardTime}>{formatTime(meal.timestamp)}</Text>
+            </View>
+            <View style={styles.cardActions}>
+              <TouchableOpacity
+                onPress={() => handleEdit(entry)}
+                style={styles.actionButton}
+                accessibilityLabel="Edit meal"
+              >
+                <Pencil color={COLORS.textTertiary} size={14} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleDelete(entry)}
+                style={styles.actionButton}
+                accessibilityLabel="Delete meal"
+              >
+                <Trash2 color={COLORS.textTertiary} size={14} />
+              </TouchableOpacity>
+            </View>
+          </View>
+          <Text style={styles.cardDescription}>{meal.description}</Text>
+          {meal.trigger_categories.length > 0 && (
+            <View style={styles.tagRow}>
+              {meal.trigger_categories.map(t => (
+                <View key={t} style={styles.tag}>
+                  <Text style={styles.tagText}>{t.replace(/_/g, ' ')}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+          {!!meal.notes && <Text style={styles.cardNotes}>{meal.notes}</Text>}
+        </View>
+      );
+    }
+
+    if (entry.type === 'symptom') {
+      const symptom = entry.data as SymptomLog;
+      return (
+        <View key={symptom.id} style={[styles.card, { borderLeftColor: COLORS.warning }]}>
+          <View style={styles.cardHeader}>
+            <View style={[styles.cardIcon, { backgroundColor: COLORS.symptomCard }]}>
+              <Activity color={COLORS.warning} size={16} />
+            </View>
+            <View style={styles.cardInfo}>
+              <Text style={styles.cardType}>Symptoms</Text>
+              <Text style={styles.cardTime}>{formatTime(symptom.timestamp)}</Text>
+            </View>
+            <View style={styles.cardActions}>
+              <TouchableOpacity
+                onPress={() => handleEdit(entry)}
+                style={styles.actionButton}
+                accessibilityLabel="Edit symptom"
+              >
+                <Pencil color={COLORS.textTertiary} size={14} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleDelete(entry)}
+                style={styles.actionButton}
+                accessibilityLabel="Delete symptom"
+              >
+                <Trash2 color={COLORS.textTertiary} size={14} />
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View style={styles.tagRow}>
+            {symptom.symptoms.map(s => (
+              <View key={s} style={[styles.tag, { backgroundColor: COLORS.symptomCard }]}>
+                <Text style={[styles.tagText, { color: COLORS.warning }]}>
+                  {s.replace(/_/g, ' ')}
+                </Text>
+              </View>
+            ))}
+          </View>
+          <Text style={styles.cardDescription}>Severity: {symptom.severity}/10</Text>
+          {!!symptom.notes && <Text style={styles.cardNotes}>{symptom.notes}</Text>}
+        </View>
+      );
+    }
+
+    const note = entry.data as NoteLog;
+    return (
+      <View key={note.id} style={[styles.card, { borderLeftColor: COLORS.secondary }]}>
+        <View style={styles.cardHeader}>
+          <View style={[styles.cardIcon, { backgroundColor: COLORS.noteCard }]}>
+            <StickyNote color={COLORS.secondary} size={16} />
+          </View>
+          <View style={styles.cardInfo}>
+            <Text style={styles.cardType}>
+              {note.category.charAt(0).toUpperCase() + note.category.slice(1)}
+            </Text>
+            <Text style={styles.cardTime}>{formatTime(note.timestamp)}</Text>
+          </View>
+          <View style={styles.cardActions}>
+            <TouchableOpacity
+              onPress={() => handleEdit(entry)}
+              style={styles.actionButton}
+              accessibilityLabel="Edit note"
+            >
+              <Pencil color={COLORS.textTertiary} size={14} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleDelete(entry)}
+              style={styles.actionButton}
+              accessibilityLabel="Delete note"
+            >
+              <Trash2 color={COLORS.textTertiary} size={14} />
+            </TouchableOpacity>
+          </View>
+        </View>
+        <Text style={styles.cardDescription}>{note.content}</Text>
+      </View>
+    );
+  };
 
   return (
     <ScrollView
@@ -52,7 +209,7 @@ export default function HomeScreen() {
 
       <View style={styles.quickActions}>
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: COLORS.mealCard }]}
+          style={[styles.actionButton2, { backgroundColor: COLORS.mealCard }]}
           onPress={() => router.push('/log-meal')}
         >
           <UtensilsCrossed color={COLORS.primary} size={28} />
@@ -60,7 +217,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: COLORS.symptomCard }]}
+          style={[styles.actionButton2, { backgroundColor: COLORS.symptomCard }]}
           onPress={() => router.push('/log-symptom')}
         >
           <Activity color={COLORS.warning} size={28} />
@@ -68,7 +225,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: COLORS.noteCard }]}
+          style={[styles.actionButton2, { backgroundColor: COLORS.noteCard }]}
           onPress={() => router.push('/log-note')}
         >
           <StickyNote color={COLORS.secondary} size={28} />
@@ -96,7 +253,7 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {totalLogs > 0 && (
+      {hasLogs && (
         <View style={styles.rewardCard}>
           <Text style={styles.rewardText}>{todayReward}</Text>
           {totalLogs >= 3 && (
@@ -107,7 +264,7 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {meals.length === 0 && symptoms.length === 0 && (
+      {!hasLogs && (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>Start your day</Text>
           <Text style={styles.emptyText}>
@@ -116,41 +273,10 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {meals.length > 0 && (
-        <View style={styles.recentSection}>
-          <Text style={styles.sectionTitle}>Recent Meals</Text>
-          {meals.slice(-3).reverse().map(meal => (
-            <View key={meal.id} style={styles.recentItem}>
-              <View style={[styles.recentDot, { backgroundColor: COLORS.primary }]} />
-              <View style={styles.recentContent}>
-                <Text style={styles.recentLabel}>{meal.meal_type.charAt(0).toUpperCase() + meal.meal_type.slice(1)}</Text>
-                <Text style={styles.recentDescription} numberOfLines={1}>{meal.description}</Text>
-              </View>
-              <Text style={styles.recentTime}>
-                {new Date(meal.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-              </Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {symptoms.length > 0 && (
-        <View style={styles.recentSection}>
-          <Text style={styles.sectionTitle}>Recent Symptoms</Text>
-          {symptoms.slice(-3).reverse().map(symptom => (
-            <View key={symptom.id} style={styles.recentItem}>
-              <View style={[styles.recentDot, { backgroundColor: COLORS.warning }]} />
-              <View style={styles.recentContent}>
-                <Text style={styles.recentLabel}>
-                  {symptom.symptoms.map(s => s.replace(/_/g, ' ')).join(', ')}
-                </Text>
-                <Text style={styles.recentDescription}>Severity: {symptom.severity}/10</Text>
-              </View>
-              <Text style={styles.recentTime}>
-                {new Date(symptom.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-              </Text>
-            </View>
-          ))}
+      {hasLogs && (
+        <View style={styles.logsSection}>
+          <Text style={styles.sectionTitle}>Today's Logs</Text>
+          {allEntries.map(renderEntry)}
         </View>
       )}
     </ScrollView>
@@ -185,7 +311,7 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 24,
   },
-  actionButton: {
+  actionButton2: {
     flex: 1,
     borderRadius: 16,
     padding: 20,
@@ -273,8 +399,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  recentSection: {
-    marginBottom: 16,
+  logsSection: {
+    marginTop: 4,
   },
   sectionTitle: {
     fontSize: 15,
@@ -282,36 +408,78 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 12,
   },
-  recentItem: {
+  card: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    borderLeftWidth: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 10,
-    padding: 14,
     marginBottom: 8,
   },
-  recentDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 12,
+  cardIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: COLORS.mealCard,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
-  recentContent: {
+  cardInfo: {
     flex: 1,
   },
-  recentLabel: {
-    fontSize: 14,
-    fontWeight: '500',
+  cardType: {
+    fontSize: 13,
+    fontWeight: '600',
     color: COLORS.text,
-    textTransform: 'capitalize',
   },
-  recentDescription: {
-    fontSize: 12,
+  cardTime: {
+    fontSize: 11,
+    color: COLORS.textTertiary,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  actionButton: {
+    padding: 8,
+  },
+  cardDescription: {
+    fontSize: 13,
     color: COLORS.textSecondary,
-    marginTop: 2,
+    lineHeight: 18,
   },
-  recentTime: {
+  cardNotes: {
     fontSize: 12,
     color: COLORS.textTertiary,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+    marginBottom: 6,
+  },
+  tag: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 5,
+    backgroundColor: COLORS.mealCard,
+  },
+  tagText: {
+    fontSize: 10,
+    color: COLORS.primary,
+    fontWeight: '500',
+    textTransform: 'capitalize',
   },
 });
