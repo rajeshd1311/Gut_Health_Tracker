@@ -101,44 +101,43 @@ People with IBS face a frustrating cycle: symptoms appear without clear cause, d
 
 - Current date display
 - 3 quick-action cards: Log Meal, Log Symptom, Add Note
-- Daily progress summary showing count of meals, symptoms, and notes logged
-- Recent activity feed: last 3 meals and last 3 symptoms with timestamps
-- Motivational message (rotates daily from 8 messages)
-- Empty state with guidance for first-time users
+- Daily progress summary showing count of meals, symptoms, and notes logged for the current calendar day
+- **Full day feed**: all meals, symptoms, and notes logged within the current 24-hour window, sorted newest-first
+  - Cards differentiated by type (color-coded left border): meals = green, symptoms = orange, notes = blue
+  - Each card shows entry type, formatted timestamp, description, trigger tags, and optional notes
+  - **Inline edit** (pencil icon) and **delete** (trash icon) action buttons on every card
+  - Tapping edit navigates to the appropriate log screen pre-populated with the existing entry
+  - Tapping delete removes the entry immediately from the UI and the database
+- Motivational message (rotates daily from a pool of messages), shown only when at least one entry exists
+- Empty state with guidance for first-time users, shown only when no entries exist for the day
 - Pull-to-refresh
 
 ---
 
-### 7. Timeline Tab
+### 7. Timeline Tab (History Calendar)
 
-- Chronological feed of all entries logged today (newest first)
-- Cards differentiated by type (color-coded left border):
-  - Meals: green
-  - Symptoms: orange
-  - Notes: blue
-- Inline edit and delete actions on all entries
-- Pull-to-refresh
-- Empty state when no entries exist
-
----
-
-### 8. History Tab
-
-- **Mini-calendar grid** showing the current month with navigation arrows
-  - Dot indicators on days that have at least one entry
-  - Selectable date range: last 90 days through today
-  - Today highlighted with ring, selected date with filled circle
-- **Day entries list** below the calendar for the selected date
-  - All entry types (meals, symptoms, notes) sorted newest-first
-  - Same card styling as Timeline
-- **7-day edit/delete window**: entries older than 7 days are read-only
-- **Locked timestamp on edit**: editing from History locks the original timestamp (content-only edits)
-- **"Edited" badge**: entries modified after creation show a subtle indicator
-- Empty state per day when no entries exist
+- Outlook-style **monthly calendar grid** showing one month at a time
+  - Previous/next month navigation arrows; forward navigation disabled at the current month
+  - Day-of-week column headers (Sun–Sat)
+  - Today's date cell highlighted with a filled primary-color circle and white number
+  - Future dates greyed out and non-interactive
+  - **Green dot indicator** beneath any date cell that has at least one logged entry (meal or symptom)
+- Tapping any past or current date opens a **bottom-sheet modal** for that day
+  - Slide-up animation, semi-transparent backdrop (tap backdrop to dismiss)
+  - Header: formatted date, total entry count, close (X) button
+  - Loading spinner while data is being fetched
+  - Empty state if no entries exist for the selected day
+  - All entry types (meals, symptoms, notes) displayed newest-first using the same card styling as the Today tab
+  - **7-day edit/delete window**: entries older than 7 days show a Lock icon instead of the pencil; the lock hint text "Edits locked after 7 days" is displayed on the card
+  - Within the 7-day window, tapping the pencil closes the modal and navigates to the appropriate log screen pre-populated with the existing entry
+  - Delete is always available regardless of entry age
+  - Deleting the last entry for a day removes the green dot from that calendar cell immediately
+- Calendar dot markers refresh when the tab regains focus (e.g., returning from an edit) and when the month changes
+- Pull-to-refresh reloads the current month's dot markers
 
 ---
 
-### 9. Insights Tab
+### 8. Insights Tab
 
 **Correlation Engine**
 - Analyzes 14-day rolling window of meal and symptom logs
@@ -163,7 +162,7 @@ People with IBS face a frustrating cycle: symptoms appear without clear cause, d
 
 ---
 
-### 10. Charts Tab
+### 9. Charts Tab
 
 - **7-day rolling window** for all visualizations
 - **Meals Per Day**: vertical bar chart showing daily meal logging frequency
@@ -206,7 +205,7 @@ People with IBS face a frustrating cycle: symptoms appear without clear cause, d
 | Styling | StyleSheet.create (no NativeWind) |
 | Icons | lucide-react-native |
 | Testing | Jest + React Testing Library |
-| Navigation | Tab-based (5 tabs) + Stack for modals |
+| Navigation | Tab-based (4 tabs) + Stack for modals |
 
 ---
 
@@ -237,7 +236,7 @@ Welcome Carousel -> Sign Up -> Onboarding (3 steps) -> Home Dashboard
 
 ### Returning User (Daily)
 ```
-Open App -> Home (see summary) -> Log Meal/Symptom/Note -> Check Timeline -> Pull-to-refresh
+Open App -> Home (see full day feed) -> Log Meal/Symptom/Note -> Edit/delete inline -> Pull-to-refresh
 ```
 
 ### Pattern Discovery (Weekly)
@@ -247,7 +246,7 @@ Insights Tab -> Review hypotheses -> Tap for details -> Note trigger for discuss
 
 ### Retrospective Review
 ```
-History Tab -> Navigate calendar -> Select past date -> Review entries -> Edit if within 7 days
+Timeline Tab -> Navigate to past month -> Tap a date -> Review entries in bottom sheet -> Edit if within 7 days
 ```
 
 ---
