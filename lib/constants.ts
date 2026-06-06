@@ -98,3 +98,12 @@ export const REWARD_MESSAGES = [
   'Tracking is the first step toward understanding. Keep going.',
   'You are doing something valuable for your health today.',
 ];
+
+// Number of days within which a log entry can be edited or deleted.
+// Change this single value to adjust the edit window across the entire app.
+export const EDIT_WINDOW_DAYS = 7;
+
+export function isWithinEditWindow(timestamp: string): boolean {
+  const cutoff = Date.now() - EDIT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  return new Date(timestamp).getTime() >= cutoff;
+}

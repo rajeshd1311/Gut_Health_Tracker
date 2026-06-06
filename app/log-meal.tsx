@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platfo
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Camera, Mic } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { COLORS, MEAL_TYPES, TRIGGER_CATEGORIES } from '@/lib/constants';
+import { COLORS, MEAL_TYPES, TRIGGER_CATEGORIES, EDIT_WINDOW_DAYS, isWithinEditWindow } from '@/lib/constants';
 import { useAuth } from '@/lib/auth';
 import { createMealLog, updateMealLog } from '@/services/database';
 import { MealType, TriggerCategory, MealLog } from '@/types/database';
@@ -49,6 +49,10 @@ export default function LogMealScreen() {
 
   const handleSave = async () => {
     if (!user) return;
+    if (isEdit && editEntry && !isWithinEditWindow(editEntry.timestamp)) {
+      setError(`Entries older than ${EDIT_WINDOW_DAYS} days cannot be edited.`);
+      return;
+    }
     if (!description.trim()) {
       setError('Please describe what you ate or drank.');
       return;
@@ -162,7 +166,6 @@ export default function LogMealScreen() {
           <Camera color={COLORS.textSecondary} size={20} />
           <Text style={styles.mediaButtonText}>{photoUri ? 'Photo added' : 'Add Photo'}</Text>
         </TouchableOpacity>
-
         <TouchableOpacity style={styles.mediaButton} onPress={() => {}}>
           <Mic color={COLORS.textSecondary} size={20} />
           <Text style={styles.mediaButtonText}>Voice Note</Text>
@@ -207,154 +210,45 @@ export default function LogMealScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  content: {
-    padding: 20,
-    paddingTop: 56,
-    paddingBottom: 40,
-  },
-  backButton: {
-    marginBottom: 16,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 8,
-    marginTop: 16,
-  },
-  hint: {
-    fontSize: 12,
-    color: COLORS.textTertiary,
-    marginBottom: 10,
-  },
-  typeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  content: { padding: 20, paddingTop: 56, paddingBottom: 40 },
+  backButton: { marginBottom: 16, width: 40, height: 40, justifyContent: 'center' },
+  title: { fontSize: 26, fontWeight: '700', color: COLORS.text, marginBottom: 4 },
+  subtitle: { fontSize: 15, color: COLORS.textSecondary, marginBottom: 24 },
+  label: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8, marginTop: 16 },
+  hint: { fontSize: 12, color: COLORS.textTertiary, marginBottom: 10 },
+  typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   typeChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
+    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20,
+    backgroundColor: COLORS.surface, borderWidth: 1.5, borderColor: COLORS.border,
   },
-  typeChipSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  typeChipText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: COLORS.text,
-  },
-  typeChipTextSelected: {
-    color: COLORS.textInverse,
-  },
+  typeChipSelected: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  typeChipText: { fontSize: 13, fontWeight: '500', color: COLORS.text },
+  typeChipTextSelected: { color: COLORS.textInverse },
   input: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: COLORS.text,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    minHeight: 80,
-    textAlignVertical: 'top',
+    backgroundColor: COLORS.surface, borderRadius: 12, padding: 16, fontSize: 16,
+    color: COLORS.text, borderWidth: 1, borderColor: COLORS.border, minHeight: 80, textAlignVertical: 'top',
   },
   inputSmall: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 15,
-    color: COLORS.text,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface, borderRadius: 12, padding: 14,
+    fontSize: 15, color: COLORS.text, borderWidth: 1, borderColor: COLORS.border,
   },
-  chipContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
+  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16,
+    backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border,
   },
-  chipSelected: {
-    backgroundColor: COLORS.primaryLight,
-    borderColor: COLORS.primaryLight,
-  },
-  chipText: {
-    fontSize: 13,
-    color: COLORS.text,
-  },
-  chipTextSelected: {
-    color: COLORS.textInverse,
-  },
-  mediaRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
-  },
+  chipSelected: { backgroundColor: COLORS.primaryLight, borderColor: COLORS.primaryLight },
+  chipText: { fontSize: 13, color: COLORS.text },
+  chipTextSelected: { color: COLORS.textInverse },
+  mediaRow: { flexDirection: 'row', gap: 12, marginTop: 20 },
   mediaButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: COLORS.surface, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: COLORS.border,
   },
-  mediaButtonText: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-  },
-  error: {
-    color: COLORS.error,
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 12,
-  },
-  saveButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    padding: 18,
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    color: COLORS.textInverse,
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  mediaButtonText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
+  error: { color: COLORS.error, fontSize: 14, textAlign: 'center', marginTop: 12 },
+  saveButton: { backgroundColor: COLORS.primary, borderRadius: 12, padding: 18, alignItems: 'center', marginTop: 24 },
+  saveButtonDisabled: { opacity: 0.6 },
+  saveButtonText: { color: COLORS.textInverse, fontSize: 16, fontWeight: '600' },
 });

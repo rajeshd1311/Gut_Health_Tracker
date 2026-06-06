@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
-import { COLORS, NOTE_CATEGORIES } from '@/lib/constants';
+import { COLORS, NOTE_CATEGORIES, EDIT_WINDOW_DAYS, isWithinEditWindow } from '@/lib/constants';
 import { useAuth } from '@/lib/auth';
 import { createNoteLog, updateNoteLog } from '@/services/database';
 import { NoteCategory, NoteLog } from '@/types/database';
@@ -24,6 +24,10 @@ export default function LogNoteScreen() {
 
   const handleSave = async () => {
     if (!user) return;
+    if (isEdit && editEntry && !isWithinEditWindow(editEntry.timestamp)) {
+      setError(`Entries older than ${EDIT_WINDOW_DAYS} days cannot be edited.`);
+      return;
+    }
     if (!content.trim()) {
       setError('Please add some content to your note.');
       return;
@@ -108,94 +112,26 @@ export default function LogNoteScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  content: {
-    padding: 20,
-    paddingTop: 56,
-    paddingBottom: 40,
-  },
-  backButton: {
-    marginBottom: 16,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 10,
-    marginTop: 16,
-  },
-  chipContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  content: { padding: 20, paddingTop: 56, paddingBottom: 40 },
+  backButton: { marginBottom: 16, width: 40, height: 40, justifyContent: 'center' },
+  title: { fontSize: 26, fontWeight: '700', color: COLORS.text, marginBottom: 4 },
+  subtitle: { fontSize: 15, color: COLORS.textSecondary, marginBottom: 24 },
+  label: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 10, marginTop: 16 },
+  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
+    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20,
+    backgroundColor: COLORS.surface, borderWidth: 1.5, borderColor: COLORS.border,
   },
-  chipSelected: {
-    backgroundColor: COLORS.secondary,
-    borderColor: COLORS.secondary,
-  },
-  chipText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: COLORS.text,
-  },
-  chipTextSelected: {
-    color: COLORS.textInverse,
-  },
+  chipSelected: { backgroundColor: COLORS.secondary, borderColor: COLORS.secondary },
+  chipText: { fontSize: 14, fontWeight: '500', color: COLORS.text },
+  chipTextSelected: { color: COLORS.textInverse },
   input: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 15,
-    color: COLORS.text,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    minHeight: 120,
-    textAlignVertical: 'top',
+    backgroundColor: COLORS.surface, borderRadius: 12, padding: 16, fontSize: 15,
+    color: COLORS.text, borderWidth: 1, borderColor: COLORS.border, minHeight: 120, textAlignVertical: 'top',
   },
-  error: {
-    color: COLORS.error,
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 12,
-  },
-  saveButton: {
-    backgroundColor: COLORS.secondary,
-    borderRadius: 12,
-    padding: 18,
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    color: COLORS.textInverse,
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  error: { color: COLORS.error, fontSize: 14, textAlign: 'center', marginTop: 12 },
+  saveButton: { backgroundColor: COLORS.secondary, borderRadius: 12, padding: 18, alignItems: 'center', marginTop: 24 },
+  saveButtonDisabled: { opacity: 0.6 },
+  saveButtonText: { color: COLORS.textInverse, fontSize: 16, fontWeight: '600' },
 });
