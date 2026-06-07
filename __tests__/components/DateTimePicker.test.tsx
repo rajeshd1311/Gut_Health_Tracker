@@ -109,14 +109,17 @@ describe('DateTimePicker – modal open/close', () => {
     expect(getByText('When did this happen?')).toBeTruthy();
   });
 
-  test('modal shows the three day-option chips', () => {
-    const { getByText } = render(
+  test('modal shows day-option chips for all 7 days', () => {
+    const { getByText, getByTestId } = render(
       <DateTimePicker value={new Date()} onChange={jest.fn()} />
     );
     fireEvent.press(getByText('Edit'));
     expect(getByText('Today')).toBeTruthy();
     expect(getByText('Yesterday')).toBeTruthy();
-    expect(getByText('2 days ago')).toBeTruthy();
+    // offsets 2-6 are rendered as date chips
+    for (let i = 2; i <= 6; i++) {
+      expect(getByTestId(`day-chip-${i}`)).toBeTruthy();
+    }
   });
 
   test('modal shows the Confirm button', () => {
@@ -204,19 +207,36 @@ describe('DateTimePicker – day chips', () => {
     expect(returned.getFullYear()).toBe(yesterday.getFullYear());
   });
 
-  test('selecting "2 days ago" and confirming returns a date from two days ago', () => {
+  test('selecting a date chip 2 days back and confirming returns a date from two days ago', () => {
     const onChange = jest.fn();
-    const { getByText } = render(
+    const { getByTestId, getByText } = render(
       <DateTimePicker value={new Date()} onChange={onChange} />
     );
     fireEvent.press(getByText('Edit'));
-    fireEvent.press(getByText('2 days ago'));
+    fireEvent.press(getByTestId('day-chip-2'));
     fireEvent.press(getByText('Confirm'));
 
     const returned: Date = onChange.mock.calls[0][0];
     const twoDaysAgo = new Date();
     twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
     expect(returned.getDate()).toBe(twoDaysAgo.getDate());
+  });
+
+  test('selecting a date chip 6 days back and confirming returns a date from 6 days ago', () => {
+    const onChange = jest.fn();
+    const { getByTestId, getByText } = render(
+      <DateTimePicker value={new Date()} onChange={onChange} />
+    );
+    fireEvent.press(getByText('Edit'));
+    fireEvent.press(getByTestId('day-chip-6'));
+    fireEvent.press(getByText('Confirm'));
+
+    const returned: Date = onChange.mock.calls[0][0];
+    const sixDaysAgo = new Date();
+    sixDaysAgo.setDate(sixDaysAgo.getDate() - 6);
+    expect(returned.getDate()).toBe(sixDaysAgo.getDate());
+    expect(returned.getMonth()).toBe(sixDaysAgo.getMonth());
+    expect(returned.getFullYear()).toBe(sixDaysAgo.getFullYear());
   });
 });
 

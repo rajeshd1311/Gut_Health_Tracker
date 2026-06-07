@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Pressable, Modal, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Pressable, Modal, ScrollView, StyleSheet } from 'react-native';
 import { Calendar, Clock, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { COLORS } from '@/lib/constants';
 
@@ -77,11 +77,15 @@ function WebPicker({ value, onChange, onClose }: { value: Date; onChange: (d: Da
 
   const handleMinuteBlur = () => setMinuteText(pad(minute));
 
-  const DAY_OPTIONS = [
-    { label: 'Today', offset: 0 },
-    { label: 'Yesterday', offset: 1 },
-    { label: '2 days ago', offset: 2 },
-  ];
+  const today = new Date();
+  const DAY_OPTIONS = Array.from({ length: 7 }, (_, i) => {
+    if (i === 0) return { label: 'Today', offset: 0 };
+    if (i === 1) return { label: 'Yesterday', offset: 1 };
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const label = d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+    return { label, offset: i };
+  });
 
   const handleConfirm = () => {
     const result = new Date();
@@ -98,10 +102,16 @@ function WebPicker({ value, onChange, onClose }: { value: Date; onChange: (d: Da
         <View style={styles.pickerCard}>
           <Text style={styles.pickerTitle}>When did this happen?</Text>
 
-          <View style={styles.dayRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.dayScroll}
+            contentContainerStyle={styles.dayRow}
+          >
             {DAY_OPTIONS.map(opt => (
               <Pressable
                 key={opt.offset}
+                testID={`day-chip-${opt.offset}`}
                 style={[styles.dayChip, daysOffset === opt.offset && styles.dayChipActive]}
                 onPress={() => setDaysOffset(opt.offset)}
               >
@@ -110,7 +120,7 @@ function WebPicker({ value, onChange, onClose }: { value: Date; onChange: (d: Da
                 </Text>
               </Pressable>
             ))}
-          </View>
+          </ScrollView>
 
           <View style={styles.timeRow}>
             <View style={styles.spinnerCol}>
@@ -255,11 +265,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
+  dayScroll: {
+    marginBottom: 24,
+  },
   dayRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 24,
-    justifyContent: 'center',
+    paddingHorizontal: 2,
   },
   dayChip: {
     paddingHorizontal: 16,
