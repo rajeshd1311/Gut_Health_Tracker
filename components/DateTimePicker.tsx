@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Pressable, Modal, StyleSheet } from 'react-native';
 import { Calendar, Clock, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { COLORS } from '@/lib/constants';
 
@@ -34,13 +34,48 @@ function pad(n: number): string {
   return n.toString().padStart(2, '0');
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
 function WebPicker({ value, onChange, onClose }: { value: Date; onChange: (d: Date) => void; onClose: () => void }) {
   const [hour, setHour] = useState(value.getHours());
   const [minute, setMinute] = useState(value.getMinutes());
+  const [hourText, setHourText] = useState(pad(value.getHours()));
+  const [minuteText, setMinuteText] = useState(pad(value.getMinutes()));
   const [daysOffset, setDaysOffset] = useState(0);
 
-  const adjustHour = (delta: number) => setHour(h => (h + delta + 24) % 24);
-  const adjustMinute = (delta: number) => setMinute(m => (m + delta + 60) % 60);
+  const adjustHour = (delta: number) => {
+    const next = (hour + delta + 24) % 24;
+    setHour(next);
+    setHourText(pad(next));
+  };
+
+  const adjustMinute = (delta: number) => {
+    const next = (minute + delta + 60) % 60;
+    setMinute(next);
+    setMinuteText(pad(next));
+  };
+
+  const handleHourChange = (text: string) => {
+    setHourText(text);
+    const parsed = parseInt(text, 10);
+    if (!isNaN(parsed)) {
+      setHour(clamp(parsed, 0, 23));
+    }
+  };
+
+  const handleHourBlur = () => setHourText(pad(hour));
+
+  const handleMinuteChange = (text: string) => {
+    setMinuteText(text);
+    const parsed = parseInt(text, 10);
+    if (!isNaN(parsed)) {
+      setMinute(clamp(parsed, 0, 59));
+    }
+  };
+
+  const handleMinuteBlur = () => setMinuteText(pad(minute));
 
   const DAY_OPTIONS = [
     { label: 'Today', offset: 0 },
@@ -49,7 +84,6 @@ function WebPicker({ value, onChange, onClose }: { value: Date; onChange: (d: Da
   ];
 
   const handleConfirm = () => {
-    console.log('[DateTimePicker] Confirm pressed', { hour, minute, daysOffset });
     const result = new Date();
     result.setDate(result.getDate() - daysOffset);
     result.setHours(hour, minute, 0, 0);
@@ -58,54 +92,78 @@ function WebPicker({ value, onChange, onClose }: { value: Date; onChange: (d: Da
   };
 
   return (
-    <View style={styles.overlayContainer}>
-      <Pressable style={styles.backdrop} onPress={onClose} />
-      <View style={styles.pickerCard}>
-        <Text style={styles.pickerTitle}>When did this happen?</Text>
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.modalOuter}>
+        <Pressable style={styles.backdrop} onPress={onClose} />
+        <View style={styles.pickerCard}>
+          <Text style={styles.pickerTitle}>When did this happen?</Text>
 
-        <View style={styles.dayRow}>
-          {DAY_OPTIONS.map(opt => (
-            <Pressable
-              key={opt.offset}
-              style={[styles.dayChip, daysOffset === opt.offset && styles.dayChipActive]}
-              onPress={() => { console.log('[DateTimePicker] Day chip pressed:', opt.label); setDaysOffset(opt.offset); }}
-            >
-              <Text style={[styles.dayChipText, daysOffset === opt.offset && styles.dayChipTextActive]}>
-                {opt.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <View style={styles.timeRow}>
-          <View style={styles.spinnerCol}>
-            <Pressable testID="hour-up" onPress={() => { console.log('[DateTimePicker] Hour up'); adjustHour(1); }} style={styles.spinBtn}>
-              <ChevronUp size={22} color={COLORS.text} />
-            </Pressable>
-            <Text style={styles.spinValue}>{pad(hour)}</Text>
-            <Pressable testID="hour-down" onPress={() => { console.log('[DateTimePicker] Hour down'); adjustHour(-1); }} style={styles.spinBtn}>
-              <ChevronDown size={22} color={COLORS.text} />
-            </Pressable>
+          <View style={styles.dayRow}>
+            {DAY_OPTIONS.map(opt => (
+              <Pressable
+                key={opt.offset}
+                style={[styles.dayChip, daysOffset === opt.offset && styles.dayChipActive]}
+                onPress={() => setDaysOffset(opt.offset)}
+              >
+                <Text style={[styles.dayChipText, daysOffset === opt.offset && styles.dayChipTextActive]}>
+                  {opt.label}
+                </Text>
+              </Pressable>
+            ))}
           </View>
 
-          <Text style={styles.timeSep}>:</Text>
+          <View style={styles.timeRow}>
+            <View style={styles.spinnerCol}>
+              <Pressable testID="hour-up" onPress={() => adjustHour(1)} style={styles.spinBtn}>
+                <ChevronUp size={22} color={COLORS.text} />
+              </Pressable>
+              <TextInput
+                testID="hour-input"
+                style={styles.spinInput}
+                value={hourText}
+                onChangeText={handleHourChange}
+                onBlur={handleHourBlur}
+                onEndEditing={handleHourBlur}
+                keyboardType="number-pad"
+                maxLength={2}
+                selectTextOnFocus
+              />
+              <Pressable testID="hour-down" onPress={() => adjustHour(-1)} style={styles.spinBtn}>
+                <ChevronDown size={22} color={COLORS.text} />
+              </Pressable>
+            </View>
 
-          <View style={styles.spinnerCol}>
-            <Pressable testID="minute-up" onPress={() => { console.log('[DateTimePicker] Minute up'); adjustMinute(5); }} style={styles.spinBtn}>
-              <ChevronUp size={22} color={COLORS.text} />
-            </Pressable>
-            <Text style={styles.spinValue}>{pad(minute)}</Text>
-            <Pressable testID="minute-down" onPress={() => { console.log('[DateTimePicker] Minute down'); adjustMinute(-5); }} style={styles.spinBtn}>
-              <ChevronDown size={22} color={COLORS.text} />
-            </Pressable>
+            <Text style={styles.timeSep}>:</Text>
+
+            <View style={styles.spinnerCol}>
+              <Pressable testID="minute-up" onPress={() => adjustMinute(5)} style={styles.spinBtn}>
+                <ChevronUp size={22} color={COLORS.text} />
+              </Pressable>
+              <TextInput
+                testID="minute-input"
+                style={styles.spinInput}
+                value={minuteText}
+                onChangeText={handleMinuteChange}
+                onBlur={handleMinuteBlur}
+                onEndEditing={handleMinuteBlur}
+                keyboardType="number-pad"
+                maxLength={2}
+                selectTextOnFocus
+              />
+              <Pressable testID="minute-down" onPress={() => adjustMinute(-5)} style={styles.spinBtn}>
+                <ChevronDown size={22} color={COLORS.text} />
+              </Pressable>
+            </View>
           </View>
-        </View>
 
-        <Pressable style={styles.confirmButton} onPress={handleConfirm}>
-          <Text style={styles.confirmButtonText}>Confirm</Text>
-        </Pressable>
+          <Text style={styles.timeHint}>Tap a number to type it directly</Text>
+
+          <Pressable style={styles.confirmButton} onPress={handleConfirm}>
+            <Text style={styles.confirmButtonText}>Confirm</Text>
+          </Pressable>
+        </View>
       </View>
-    </View>
+    </Modal>
   );
 }
 
@@ -164,19 +222,14 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: '500',
   },
-  overlayContainer: {
-    position: 'fixed' as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 9999,
+  modalOuter: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   backdrop: {
-    position: 'absolute' as const,
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
@@ -189,7 +242,6 @@ const styles = StyleSheet.create({
     padding: 24,
     width: '100%',
     maxWidth: 360,
-    zIndex: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
@@ -234,7 +286,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginBottom: 24,
+    marginBottom: 8,
   },
   spinnerCol: {
     alignItems: 'center',
@@ -243,18 +295,30 @@ const styles = StyleSheet.create({
   spinBtn: {
     padding: 8,
   },
-  spinValue: {
+  spinInput: {
     fontSize: 40,
     fontWeight: '700',
     color: COLORS.text,
-    width: 72,
+    width: 80,
+    height: 60,
     textAlign: 'center',
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    backgroundColor: COLORS.background,
+    padding: 0,
   },
   timeSep: {
     fontSize: 36,
     fontWeight: '700',
     color: COLORS.text,
     marginBottom: 4,
+  },
+  timeHint: {
+    fontSize: 12,
+    color: COLORS.textTertiary,
+    textAlign: 'center',
+    marginBottom: 20,
   },
   confirmButton: {
     backgroundColor: COLORS.primary,

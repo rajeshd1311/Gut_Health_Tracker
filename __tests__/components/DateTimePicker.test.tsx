@@ -336,3 +336,97 @@ describe('DateTimePicker – minute spinner', () => {
     expect(returned.getMinutes()).toBe(55);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Free-form text input for hour and minute
+// ---------------------------------------------------------------------------
+
+describe('DateTimePicker – direct text input', () => {
+  test('typing a valid hour into the hour input updates the confirmed time', () => {
+    const base = new Date();
+    base.setHours(11, 0, 0, 0);
+    const onChange = jest.fn();
+    const { getByTestId, getByText } = render(
+      <DateTimePicker value={base} onChange={onChange} />
+    );
+    fireEvent.press(getByText('Edit'));
+    fireEvent.changeText(getByTestId('hour-input'), '9');
+    fireEvent.press(getByText('Confirm'));
+
+    const returned: Date = onChange.mock.calls[0][0];
+    expect(returned.getHours()).toBe(9);
+  });
+
+  test('typing a valid minute into the minute input updates the confirmed time', () => {
+    const base = new Date();
+    base.setHours(10, 7, 0, 0);
+    const onChange = jest.fn();
+    const { getByTestId, getByText } = render(
+      <DateTimePicker value={base} onChange={onChange} />
+    );
+    fireEvent.press(getByText('Edit'));
+    fireEvent.changeText(getByTestId('minute-input'), '45');
+    fireEvent.press(getByText('Confirm'));
+
+    const returned: Date = onChange.mock.calls[0][0];
+    expect(returned.getMinutes()).toBe(45);
+  });
+
+  test('hour value above 23 is clamped to 23', () => {
+    const base = new Date();
+    base.setHours(10, 0, 0, 0);
+    const onChange = jest.fn();
+    const { getByTestId, getByText } = render(
+      <DateTimePicker value={base} onChange={onChange} />
+    );
+    fireEvent.press(getByText('Edit'));
+    fireEvent.changeText(getByTestId('hour-input'), '25');
+    fireEvent.press(getByText('Confirm'));
+
+    const returned: Date = onChange.mock.calls[0][0];
+    expect(returned.getHours()).toBe(23);
+  });
+
+  test('minute value above 59 is clamped to 59', () => {
+    const base = new Date();
+    base.setHours(10, 0, 0, 0);
+    const onChange = jest.fn();
+    const { getByTestId, getByText } = render(
+      <DateTimePicker value={base} onChange={onChange} />
+    );
+    fireEvent.press(getByText('Edit'));
+    fireEvent.changeText(getByTestId('minute-input'), '99');
+    fireEvent.press(getByText('Confirm'));
+
+    const returned: Date = onChange.mock.calls[0][0];
+    expect(returned.getMinutes()).toBe(59);
+  });
+
+  test('hour input re-pads to two digits on blur', () => {
+    const base = new Date();
+    base.setHours(11, 0, 0, 0);
+    const { getByTestId, getByText } = render(
+      <DateTimePicker value={base} onChange={jest.fn()} />
+    );
+    fireEvent.press(getByText('Edit'));
+    const input = getByTestId('hour-input');
+    fireEvent.changeText(input, '9');
+    fireEvent(input, 'blur');
+    expect(input.props.value).toBe('09');
+  });
+
+  test('non-numeric hour input leaves the previous valid hour unchanged', () => {
+    const base = new Date();
+    base.setHours(10, 0, 0, 0);
+    const onChange = jest.fn();
+    const { getByTestId, getByText } = render(
+      <DateTimePicker value={base} onChange={onChange} />
+    );
+    fireEvent.press(getByText('Edit'));
+    fireEvent.changeText(getByTestId('hour-input'), 'abc');
+    fireEvent.press(getByText('Confirm'));
+
+    const returned: Date = onChange.mock.calls[0][0];
+    expect(returned.getHours()).toBe(10);
+  });
+});
