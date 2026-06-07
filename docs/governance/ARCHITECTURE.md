@@ -1,5 +1,7 @@
 # GutSense — Architecture Reference
 
+**Last Updated:** June 7, 2026
+
 > **AI DEVELOPMENT RULE**: Read this file in full before generating any new code, modifying any existing module, or adding a dependency. Every decision here reflects a deliberate constraint. Violating these boundaries introduces tight coupling and regression risk.
 
 ---

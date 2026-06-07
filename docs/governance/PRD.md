@@ -1,5 +1,7 @@
 # GutSense - Product Requirements Document
 
+**Last Updated:** June 7, 2026
+
 ## Overview
 
 GutSense is a mobile-first IBS (Irritable Bowel Syndrome) diary app that helps users identify food triggers by logging meals, symptoms, and contextual notes. The app applies a temporal correlation algorithm to surface patterns between dietary choices and digestive symptoms, empowering users to have more informed conversations with their healthcare providers.
